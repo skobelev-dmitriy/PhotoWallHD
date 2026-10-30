@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhotoWall HD</title>
+<style>
+  :root {
+    --bg: #12151d; --card: #1b2030; --line: #2c3347; --text: #e8ebf3; --dim: #8f98b0;
+    --accent: #5b92ff; --ok: #4fbf7f; --err: #e36464;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 8px 0 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 { font-size: 16px; margin: 0 0 12px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .chip { font-size: 13px; padding: 3px 10px; border-radius: 99px; background: var(--line); color: var(--dim); font-weight: 400; }
+  .chip.on { background: #1f4a35; color: #8be0b0; }
+  button, .btn { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; font: inherit; cursor: pointer; }
+  button.ghost { background: var(--line); color: var(--text); }
+  button.danger { background: #8e3535; }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 28px 12px; text-align: center; color: var(--dim); cursor: pointer; transition: .15s; }
+  .drop.over { border-color: var(--accent); color: var(--text); background: #1a2340; }
+  .drop b { color: var(--text); }
+  #queue { margin-top: 12px; display: grid; gap: 6px; }
+  .q { position: relative; background: var(--bg); border-radius: 8px; padding: 6px 10px; font-size: 14px; overflow: hidden; display: flex; justify-content: space-between; gap: 8px; }
+  .q .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #22345f; z-index: 0; }
+  .q span { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q.ok .bar { background: #1f4a35; } .q.err .bar { background: #5a2a2a; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .tile { position: relative; aspect-ratio: 4/3; border-radius: 10px; overflow: hidden; background: #0c0e14; border: 2px solid transparent; cursor: pointer; }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile.sel { border-color: var(--accent); }
+  .tile .chk { position: absolute; left: 6px; top: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.55); border: 2px solid #fff; display: none; }
+  .tile.sel .chk { display: block; background: var(--accent); }
+  .tile a { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; border-radius: 8px; background: rgba(0,0,0,.55); color: #fff; text-decoration: none; text-align: center; line-height: 26px; font-size: 14px; opacity: 0; transition: .15s; }
+  .tile:hover a { opacity: 1; }
+  @media (hover: none) { .tile a { opacity: 1; } }
+  .tile .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 11px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.75)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 24px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--dim); }
+  label.f.inline { flex-direction: row; align-items: center; gap: 10px; color: var(--text); }
+  select, input[type=time], input[type=password], input[type=text] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .muted { color: var(--dim); font-size: 14px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #000c; padding: 8px 16px; border-radius: 99px; opacity: 0; transition: .25s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🖼 PhotoWall HD <span class="chip" id="status">…</span></h1>
+
+  <div class="card">
+    <h2 data-t="show">Показ</h2>
+    <div class="row">
+      <button class="ghost" onclick="ctl('prev')">⏮</button>
+      <button class="ghost" onclick="ctl('toggle')">⏯</button>
+      <button class="ghost" onclick="ctl('next')">⏭</button>
+      <button onclick="ctl('start')" data-t="startShow">Запустить показ на проекторе</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 data-t="upload">Загрузить фото</h2>
+    <div class="drop" id="drop">
+      <div>📷 <b data-t="dropHint">Перетащите фото сюда или нажмите, чтобы выбрать</b></div>
+      <div class="muted" data-t="dropSub">JPG, PNG, WebP — до 4K и больше, оригиналы сжимать не нужно</div>
+    </div>
+    <input id="file" type="file" accept="image/*" multiple hidden>
+    <div id="queue"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content: space-between">
+      <h2 style="margin:0"><span data-t="photos">Фотографии</span> <span id="count"></span></h2>
+      <div class="row">
+        <button class="ghost" id="selAll" onclick="selectAll()" data-t="selectAll">Выбрать все</button>
+        <button class="danger" id="delBtn" onclick="deleteSelected()" disabled data-t="delete">Удалить</button>
+      </div>
+    </div>
+    <div class="muted" id="space"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-t="settings">Настройки</h2>
+    <div class="settings">
+      <label class="f"><span data-t="interval">Смена фото</span>
+        <select data-key="intervalSec" data-type="int" id="interval"></select></label>
+      <label class="f"><span data-t="transition">Переход</span>
+        <select data-key="transition">
+          <option value="fade" data-t="trFade">плавное растворение</option>
+          <option value="slide" data-t="trSlide">сдвиг</option>
+          <option value="none" data-t="trNone">без эффекта</option>
+        </select></label>
+      <label class="f"><span data-t="fit">Масштаб</span>
+        <select data-key="fit">
+          <option value="fit" data-t="fitFit">целиком (поля по краям)</option>
+          <option value="fill" data-t="fitFill">на весь экран (с обрезкой)</option>
+          <option value="auto" data-t="fitAuto">авто</option>
+        </select></label>
+      <label class="f"><span><span data-t="dim">Затемнение</span>: <span id="dimv"></span>%</span>
+        <input type="range" min="0" max="80" step="5" data-key="dim" data-type="int" id="dim"></label>
+      <label class="f inline"><input type="checkbox" data-key="kenBurns" data-type="bool"><span data-t="kenBurns">Медленное приближение (Ken Burns)</span></label>
+      <label class="f inline"><input type="checkbox" data-key="shuffle" data-type="bool"><span data-t="shuffle">Случайный порядок</span></label>
+      <label class="f inline"><input type="checkbox" data-key="clock" data-type="bool"><span data-t="clock">Показывать часы</span></label>
+      <label class="f"><span data-t="clockPos">Положение часов</span>
+        <select data-key="clockPos">
+          <option value="tl" data-t="tl">слева сверху</option>
+          <option value="tr" data-t="tr">справа сверху</option>
+          <option value="bl" data-t="bl">слева снизу</option>
+          <option value="bc" data-t="bc">снизу по центру</option>
+          <option value="br" data-t="br">справа снизу</option>
+        </select></label>
+      <label class="f"><span data-t="clockSize">Размер часов</span>
+        <select data-key="clockSize">
+          <option value="s" data-t="small">маленькие</option>
+          <option value="m" data-t="medium">средние</option>
+          <option value="l" data-t="large">большие</option>
+        </select></label>
+      <label class="f inline"><input type="checkbox" data-key="clock24" data-type="bool"><span data-t="clock24">24-часовой формат</span></label>
+      <label class="f inline"><input type="checkbox" data-key="clockDate" data-type="bool"><span data-t="clockDate">Дата под часами</span></label>
+      <label class="f inline"><input type="checkbox" data-key="scheduleEnabled" data-type="bool"><span data-t="schedule">Расписание (вне его — чёрный экран)</span></label>
+      <label class="f"><span data-t="on">Включать в</span>
+        <input type="time" data-key="onMinutes" data-type="time"></label>
+      <label class="f"><span data-t="off">Выключать в</span>
+        <input type="time" data-key="offMinutes" data-type="time"></label>
+      <label class="f inline"><input type="checkbox" data-key="autostart" data-type="bool"><span data-t="autostart">Автозапуск показа</span></label>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <div class="row">
+      <label class="f" style="flex:1;min-width:220px"><span data-t="pin">PIN-код для этой страницы (необязательно)</span>
+        <input type="password" id="pin" autocomplete="new-password" maxlength="32"></label>
+      <button class="ghost" onclick="savePin()" data-t="savePin">Сохранить PIN</button>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+const T = {
+  en: {
+    show: 'Slideshow', startShow: 'Start slideshow on the projector', upload: 'Upload photos',
+    dropHint: 'Drop photos here or tap to choose', dropSub: 'JPG, PNG, WebP — 4K and bigger, no need to shrink originals',
+    photos: 'Photos', selectAll: 'Select all', clearSel: 'Clear', delete: 'Delete', settings: 'Settings',
+    interval: 'Change photo every', transition: 'Transition', trFade: 'crossfade', trSlide: 'slide', trNone: 'none',
+    fit: 'Scaling', fitFit: 'fit whole picture', fitFill: 'fill screen (crop)', fitAuto: 'auto', dim: 'Dimming',
+    kenBurns: 'Slow zoom (Ken Burns)', shuffle: 'Shuffle', clock: 'Show clock', clockPos: 'Clock position',
+    tl: 'top left', tr: 'top right', bl: 'bottom left', bc: 'bottom center', br: 'bottom right',
+    clockSize: 'Clock size', small: 'small', medium: 'medium', large: 'large', clock24: '24-hour format',
+    clockDate: 'Show date', schedule: 'Schedule (black screen outside it)', on: 'Turn on at', off: 'Turn off at',
+    autostart: 'Auto-start slideshow', pin: 'PIN for this page (optional)', savePin: 'Save PIN',
+    running: 'slideshow running', idle: 'slideshow not started', saved: 'Saved', pinSet: 'PIN saved', pinCleared: 'PIN removed',
+    askPin: 'Enter PIN', free: 'free space', of: 'photos', confirmDel: 'Delete selected photos: ',
+    badFormat: 'unsupported format', tooBig: 'too large', noSpace: 'no space left', failed: 'failed',
+    s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
+  },
+  ru: {
+    s: 'с', min: 'мин', h: 'ч',
+    running: 'показ идёт', idle: 'показ не запущен', saved: 'Сохранено', pinSet: 'PIN сохранён', pinCleared: 'PIN удалён',
+    askPin: 'Введите PIN', free: 'свободно', of: 'фото', confirmDel: 'Удалить выбранные фото: ',
+    badFormat: 'формат не поддерживается', tooBig: 'слишком большой', noSpace: 'нет места', failed: 'ошибка',
+    started: 'Команда отправлена', noPhotos: 'Фотографий пока нет — загрузите их выше', clearSel: 'Снять выбор',
+    delete: 'Удалить', selectAll: 'Выбрать все'
+  }
+};
+const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
+if (lang === 'en') document.querySelectorAll('[data-t]').forEach(e => { if (T.en[e.dataset.t]) e.textContent = T.en[e.dataset.t]; });
+document.documentElement.lang = lang;
+
+let PIN = localStorage.getItem('pin') || '';
+let state = null;
+const selected = new Set();
+
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+async function askPin() {
+  const p = prompt(t('askPin'));
+  if (p === null) throw new Error('cancelled');
+  PIN = p; localStorage.setItem('pin', PIN);
+}
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'X-Pin': PIN }, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401) { await askPin(); return api(path, opts); }
+  return r;
+}
+const post = (path, obj) => api(path, { method: 'POST', body: JSON.stringify(obj) });
+
+function fmtBytes(n) {
+  if (n > 1e9) return (n / 1e9).toFixed(1) + ' GB';
+  if (n > 1e6) return (n / 1e6).toFixed(0) + ' MB';
+  return Math.round(n / 1e3) + ' KB';
+}
+function fmtInterval(s) { return s < 60 ? s + ' ' + t('s') : s < 3600 ? (s / 60) + ' ' + t('min') : (s / 3600) + ' ' + t('h'); }
+const pad = n => String(n).padStart(2, '0');
+
+async function load(quiet) {
+  const r = await api('/api/state');
+  const next = await r.json();
+  const sig = x => x.photos.map(p => p.name + p.modified).join('|');
+  const changed = !state || sig(state) !== sig(next);
+  state = next;
+  renderStatus();
+  if (!quiet || changed) renderGrid();
+  if (!quiet) renderSettings();
+}
+
+function renderStatus() {
+  const chip = $('#status');
+  chip.textContent = state.active ? t('running') : t('idle');
+  chip.classList.toggle('on', state.active);
+}
+
+function renderGrid() {
+  const grid = $('#grid');
+  const names = new Set(state.photos.map(p => p.name));
+  for (const n of [...selected]) if (!names.has(n)) selected.delete(n);
+  grid.innerHTML = '';
+  if (!state.photos.length) { grid.innerHTML = '<div class="muted">' + t('noPhotos') + '</div>'; }
+  // newest first
+  for (const p of [...state.photos].reverse()) {
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (selected.has(p.name) ? ' sel' : '');
+    const url = encodeURIComponent(p.name);
+    tile.innerHTML = '<img loading="lazy" alt=""><i class="chk"></i><a target="_blank" title="open">↗</a><div class="cap"></div>';
+    tile.querySelector('img').src = '/api/thumb/' + url + '?v=' + p.modified + '&pin=' + encodeURIComponent(PIN);
+    tile.querySelector('a').href = '/photo/' + url + '?pin=' + encodeURIComponent(PIN);
+    tile.querySelector('a').onclick = e => e.stopPropagation();
+    tile.querySelector('.cap').textContent = p.name;
+    tile.onclick = () => { selected.has(p.name) ? selected.delete(p.name) : selected.add(p.name); tile.classList.toggle('sel'); updateSel(); };
+    grid.appendChild(tile);
+  }
+  $('#count').textContent = '(' + state.photos.length + ')';
+  $('#space').textContent = fmtBytes(state.totalBytes) + ' · ' + t('free') + ' ' + fmtBytes(state.freeBytes) + ' · ' + state.url;
+  updateSel();
+}
+
+function updateSel() {
+  $('#delBtn').disabled = selected.size === 0;
+  $('#delBtn').textContent = selected.size ? t('delete') + ' (' + selected.size + ')' : t('delete');
+  $('#selAll').textContent = selected.size ? t('clearSel') : t('selectAll');
+}
+function selectAll() {
+  if (selected.size) selected.clear(); else state.photos.forEach(p => selected.add(p.name));
+  renderGrid();
+}
+async function deleteSelected() {
+  if (!selected.size || !confirm(t('confirmDel') + selected.size + '?')) return;
+  await post('/api/delete', { names: [...selected] });
+  selected.clear(); await load();
+}
+
+// ---- settings ----
+function renderSettings() {
+  const s = state.settings;
+  const sel = $('#interval');
+  const opts = [5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600];
+  if (!opts.includes(s.intervalSec)) opts.push(s.intervalSec), opts.sort((a, b) => a - b);
+  sel.innerHTML = opts.map(v => '<option value="' + v + '">' + fmtInterval(v) + '</option>').join('');
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const v = s[el.dataset.key];
+    if (el.dataset.type === 'bool') el.checked = !!v;
+    else if (el.dataset.type === 'time') el.value = pad(Math.floor(v / 60)) + ':' + pad(v % 60);
+    else el.value = v;
+  });
+  $('#dimv').textContent = s.dim;
+}
+document.querySelectorAll('[data-key]').forEach(el => {
+  el.addEventListener(el.type === 'range' ? 'input' : 'change', async () => {
+    let v;
+    if (el.dataset.type === 'bool') v = el.checked;
+    else if (el.dataset.type === 'int') v = parseInt(el.value, 10);
+    else if (el.dataset.type === 'time') { const [h, m] = el.value.split(':').map(Number); v = h * 60 + m; if (isNaN(v)) return; }
+    else v = el.value;
+    if (el.id === 'dim') $('#dimv').textContent = v;
+    clearTimeout(el._t);
+    el._t = setTimeout(async () => { await post('/api/settings', { [el.dataset.key]: v }); toast(t('saved')); }, el.type === 'range' ? 300 : 0);
+  });
+});
+async function savePin() {
+  const v = $('#pin').value.trim();
+  await post('/api/settings', { pin: v });
+  PIN = v; localStorage.setItem('pin', PIN);
+  $('#pin').value = ''; toast(v ? t('pinSet') : t('pinCleared'));
+}
+
+async function ctl(action) {
+  await post('/api/control', { action });
+  toast(t('started'));
+  setTimeout(load, 1500);
+}
+
+// ---- upload ----
+const drop = $('#drop'), fileInput = $('#file');
+drop.onclick = () => fileInput.click();
+fileInput.onchange = () => { uploadAll([...fileInput.files]); fileInput.value = ''; };
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => uploadAll([...e.dataTransfer.files].filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name))));
+
+function uploadOne(file, row) {
+  return new Promise(resolve => {
+    const x = new XMLHttpRequest();
+    x.open('POST', '/api/upload');
+    x.setRequestHeader('X-Pin', PIN);
+    x.setRequestHeader('X-Filename', encodeURIComponent(file.name));
+    x.upload.onprogress = e => { if (e.lengthComputable) row.bar.style.width = (e.loaded / e.total * 100) + '%'; };
+    x.onload = () => {
+      if (x.status === 200) { row.el.classList.add('ok'); row.msg.textContent = '✓'; row.bar.style.width = '100%'; }
+      else {
+        row.el.classList.add('err');
+        row.msg.textContent = { 415: t('badFormat'), 413: t('tooBig'), 507: t('noSpace') }[x.status] || t('failed');
+      }
+      resolve();
+    };
+    x.onerror = () => { row.el.classList.add('err'); row.msg.textContent = t('failed'); resolve(); };
+    x.send(file);
+  });
+}
+
+async function uploadAll(files) {
+  if (!files.length) return;
+  const q = $('#queue');
+  const rows = files.map(f => {
+    const el = document.createElement('div'); el.className = 'q';
+    el.innerHTML = '<div class="bar"></div><span></span><span></span>';
+    const [bar, name, msg] = el.children;
+    name.textContent = f.name + ' · ' + fmtBytes(f.size);
+    q.appendChild(el);
+    return { el, bar, msg, file: f };
+  });
+  let i = 0;
+  const worker = async () => { while (i < rows.length) { const r = rows[i++]; await uploadOne(r.file, r); } };
+  await Promise.all([worker(), worker()]);
+  await load();
+  setTimeout(() => rows.forEach(r => r.el.classList.contains('ok') && r.el.remove()), 4000);
+}
+
+(async () => {
+  try { await load(); } catch (e) {}
+  setInterval(() => load(true).catch(() => {}), 10000);
+})();
+</script>
+</body>
+</html>
