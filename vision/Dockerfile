@@ -1,7 +1,7 @@
 # Vision service for PhotoWall HD.
 #   docker build -t photowall-vision .                          # classical backend, no model, small image
 #   docker build --build-arg BACKEND=segformer -t photowall-vision .   # neural scene parsing (downloads torch + weights)
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 ARG BACKEND=classical
 ENV BACKEND=${BACKEND} \

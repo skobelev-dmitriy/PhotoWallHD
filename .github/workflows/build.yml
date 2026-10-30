@@ -14,14 +14,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Build release APK
         run: ./gradlew --no-daemon assembleRelease
@@ -29,7 +29,7 @@ jobs:
       - name: Name the APK
         run: cp app/build/outputs/apk/release/app-release.apk PhotoWallHD.apk
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: PhotoWallHD-apk
           path: PhotoWallHD.apk

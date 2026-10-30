@@ -1,18 +1,18 @@
 plugins {
+    // AGP 9 has built-in Kotlin: no separate kotlin-android plugin
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "app.photowall"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.photowall"
         minSdk = 23
-        targetSdk = 34
+        targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "1.0.0"
+        versionName = "1.1.0"
     }
 
     // A fixed, committed key so that every CI build is signed identically
@@ -36,11 +36,9 @@ android {
         }
     }
 
+    // Kotlin's jvmTarget follows these
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 }

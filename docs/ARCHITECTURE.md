@@ -1,6 +1,7 @@
 # Архитектура PhotoWall HD
 
-Нативное Android-приложение на Kotlin, **без внешних зависимостей** (только Android SDK). minSdk 23, targetSdk 34.
+Нативное Android-приложение на Kotlin, **без внешних зависимостей** (только Android SDK). minSdk 23 (Android 6.0), compileSdk и targetSdk 36.
+Сборка: Android Gradle plugin 9.4 (встроенный Kotlin), Gradle 9.8, JDK 21.
 Весь пользовательский интерфейс на проекторе построен кодом (без XML-разметки), чтобы им можно было управлять пультом.
 
 ## Компоненты (`app/src/main/java/app/photowall/`)
