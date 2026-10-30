@@ -44,6 +44,11 @@ class Prefs(context: Context) {
     var activePlaylist by strPref("activePlaylist", "", null)
     var playlistMode by strPref("playlistMode", "manual", setOf("manual", "schedule"))
 
+    /** "Living photos": address of the vision service, on/off, and a global multiplier for the motion (percent). */
+    var visionUrl by strPref("visionUrl", "", null)
+    var live by boolPref("live", true)
+    var liveStrength by intPref("liveStrength", 100, 0, 400)
+
     // disco mode
     var discoSource by strPref("discoSource", "remote", setOf("remote", "mic", "output", "demo"))
     var discoVisual by strPref("discoVisual", "auto", setOf("auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"))
@@ -77,6 +82,9 @@ class Prefs(context: Context) {
         put("autostart", autostart)
         put("hasPin", pin.isNotEmpty())
         put("activePlaylist", activePlaylist)
+        put("visionUrl", visionUrl)
+        put("live", live)
+        put("liveStrength", liveStrength)
         put("playlistMode", playlistMode)
         put("discoSource", discoSource)
         put("discoVisual", discoVisual)
@@ -106,6 +114,9 @@ class Prefs(context: Context) {
         if (j.has("discoAutoSec")) discoAutoSec = j.optInt("discoAutoSec", discoAutoSec)
         if (j.has("discoSens")) discoSens = j.optInt("discoSens", discoSens)
         if (j.has("discoFlash")) discoFlash = j.optBoolean("discoFlash", discoFlash)
+        if (j.has("visionUrl")) visionUrl = j.optString("visionUrl", "").trim().trimEnd('/').take(200)
+        if (j.has("live")) live = j.optBoolean("live", live)
+        if (j.has("liveStrength")) liveStrength = j.optInt("liveStrength", liveStrength)
         if (j.has("activePlaylist")) activePlaylist = j.optString("activePlaylist", activePlaylist)
         if (j.has("playlistMode")) playlistMode = j.optString("playlistMode", playlistMode)
         if (j.has("pin")) pin = j.optString("pin", "").trim().take(32)

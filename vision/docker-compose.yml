@@ -1,0 +1,13 @@
+# docker compose up --build   ->  http://localhost:8090  (test page) and http://<ip-of-this-computer>:8090 for the projector
+services:
+  vision:
+    build:
+      context: .
+      args:
+        BACKEND: segformer      # use "classical" for a tiny image that needs no model download
+    ports:
+      - "8090:8090"
+    environment:
+      BACKEND: segformer
+      MODEL_ID: nvidia/segformer-b2-finetuned-ade-512-512
+    restart: unless-stopped

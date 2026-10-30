@@ -29,6 +29,10 @@ const fake = createServer((req, res) => {
       if (j.action === "play") { state.effectivePlaylist = j.id; return send({ ok: true }); }
       if (j.action === "delete") { state.playlists = state.playlists.filter((x) => x.id !== j.id); return send({ ok: true }); }
     }
+    if (req.url.startsWith("/api/live/")) {
+      const live = { exists: true, backend: "classical", layers: [{ id: "water-1", class: "water", effect: "ripple", enabled: true, strength: 1, confidence: 0.6, note: "n" }] };
+      return send(req.url.includes("delete") ? { ok: true } : live);
+    }
     if (req.url === "/api/folders") return send({ ok: true });
     if (req.url === "/api/move") return send({ moved: JSON.parse(body.toString()).names.length });
     if (req.url === "/api/delete") return send({ deleted: JSON.parse(body.toString()).names.length });
@@ -42,7 +46,7 @@ const client = new Client({ name: "smoke", version: "1" });
 await client.connect(new StdioClientTransport({ command: "node", args: ["server.js"], env: { ...process.env, PHOTOWALL_URL: url, PHOTOWALL_PIN: "1234" } }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-assert.deepEqual(tools, ["add_photo", "delete_photos", "disco", "folders", "list_photos", "playlists", "projector_status", "see_screen", "slideshow", "update_settings"]);
+assert.deepEqual(tools, ["add_photo", "animate_photo", "delete_photos", "disco", "folders", "list_photos", "playlists", "projector_status", "see_screen", "slideshow", "update_settings"]);
 
 let r = await client.callTool({ name: "disco", arguments: { action: "start", effect: "lamps", source: "demo" } });
 assert.match(r.content[0].text, /disco mode/);
@@ -89,6 +93,13 @@ r = await client.callTool({ name: "playlists", arguments: { action: "create", na
 assert.equal(r.isError, true);
 r = await client.callTool({ name: "folders", arguments: { action: "move", names: ["a.jpg"], folder: "Sea" } });
 assert.match(r.content[0].text, /Moved 1/);
+
+r = await client.callTool({ name: "animate_photo", arguments: { action: "analyze", name: "a.jpg" } });
+assert.match(r.content[0].text, /water-1: water → ripple/);
+r = await client.callTool({ name: "animate_photo", arguments: { action: "update", name: "a.jpg" } });
+assert.equal(r.isError, true);
+r = await client.callTool({ name: "animate_photo", arguments: { action: "remove", name: "a.jpg" } });
+assert.match(r.content[0].text, /Removed/);
 
 fake.close(); img.close(); await client.close();
 console.log("MCP smoke test passed");

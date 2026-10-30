@@ -4,3 +4,8 @@ local.properties
 .idea/
 *.iml
 .DS_Store
+
+# private copies of third-party docs (do not publish vendor documentation in this public repo)
+docs/wallpaper-engine/
+__pycache__/
+.pytest_cache/

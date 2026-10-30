@@ -49,6 +49,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     private val prefs = Prefs(context)
     private val store = PhotoStore.get(context)
     private val playlists = Playlists.get(context)
+    private val liveStore = LiveStore(context)
     private val handler = Handler(Looper.getMainLooper())
     private val loader = Executors.newSingleThreadExecutor()
     private val dm = context.resources.displayMetrics
@@ -75,6 +76,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
 
     private var cacheName: String? = null
     private var cacheBmp: Bitmap? = null
+    private var cacheLive: LiveRender? = null
     private var loadingName: String? = null
     private var wantedName: String? = null
     private var wantedDir = 1
@@ -161,6 +163,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         front.setImageDrawable(null)
         back.setImageDrawable(null)
         cacheBmp = null
+        cacheLive = null
         cacheName = null
         wantedName = null
         shownName = null
@@ -248,9 +251,11 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         wantedDir = dir
         val cached = cacheBmp
         if (cacheName == name && cached != null) {
+            val live = cacheLive
             cacheBmp = null
+            cacheLive = null
             cacheName = null
-            present(cached, dir)
+            present(cached, live, dir)
             return
         }
         if (loadingName == name) return
@@ -269,16 +274,26 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         val tw = dm.widthPixels
         val th = dm.heightPixels
         val file = File(store.dir, name)
+        val withLive = prefs.live
         loader.execute {
             val bmp = BitmapLoader.decode(file, tw, th)
+            val live = if (bmp != null && withLive) {
+                try {
+                    store.find(name)?.let { liveStore.render(it, bmp.width, bmp.height) }
+                } catch (e: Exception) {
+                    null // a broken recipe must never stop the show
+                }
+            } else {
+                null
+            }
             handler.post {
                 if (loadingName == name) loadingName = null
-                onLoaded(name, bmp)
+                onLoaded(name, bmp, live)
             }
         }
     }
 
-    private fun onLoaded(name: String, bmp: Bitmap?) {
+    private fun onLoaded(name: String, bmp: Bitmap?, live: LiveRender?) {
         if (!running) return
         if (bmp == null) {
             if (wantedName == name) {
@@ -291,16 +306,17 @@ class SlideshowView(context: Context) : FrameLayout(context) {
             return
         }
         if (wantedName == name) {
-            present(bmp, wantedDir)
+            present(bmp, live, wantedDir)
         } else {
             cacheName = name
             cacheBmp = bmp
+            cacheLive = live
         }
     }
 
     // ---- showing ----
 
-    private fun present(bmp: Bitmap, dir: Int) {
+    private fun present(bmp: Bitmap, live: LiveRender?, dir: Int) {
         shownName = wantedName
         wantedName = null
         settle()
@@ -309,6 +325,9 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         val outgoing = front
 
         incoming.setImageBitmap(bmp)
+        incoming.live = live
+        incoming.gain = prefs.liveStrength / 100.0
+        incoming.invalidate()
         incoming.scaleType = scaleFor(bmp)
         incoming.scaleX = 1f
         incoming.scaleY = 1f
@@ -456,7 +475,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         }
     }
 
-    private fun newImage() = ImageView(context).apply {
+    private fun newImage() = LiveImageView(context).apply {
         layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
         scaleType = ImageView.ScaleType.FIT_CENTER
     }

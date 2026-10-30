@@ -96,10 +96,16 @@ class PhotoStore private constructor(context: Context) {
         }
     }
 
+    /** Where this photo's "live" recipe lives. Keyed by size and modified time, so it survives moves and folder renames. */
+    fun liveDir(p: Photo) = File(File(dir, ".live"), "${p.size}-${p.modified}")
+
+    fun hasLive(p: Photo) = File(liveDir(p), "recipe.json").exists()
+
     @Synchronized
     fun delete(name: String): Boolean {
         val photo = find(name) ?: return false
         val ok = photo.file.delete()
+        liveDir(photo).deleteRecursively()
         clearThumbs(name)
         if (ok) touch()
         return ok

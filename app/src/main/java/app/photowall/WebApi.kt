@@ -11,6 +11,7 @@ class WebApi(private val ctx: Context) {
     private val prefs = Prefs(ctx)
     private val store = PhotoStore.get(ctx)
     private val playlists = Playlists.get(ctx)
+    private val live = LiveStore(ctx)
     private val pages = HashMap<String, ByteArray>()
 
     fun handle(req: Request): Response {
@@ -37,6 +38,12 @@ class WebApi(private val ctx: Context) {
             req.method == "GET" && path.startsWith("/photo/") -> original(path.removePrefix("/photo/"))
             req.method == "POST" && path == "/api/upload" -> upload(req)
             req.method == "POST" && path == "/api/delete" -> delete(req)
+            req.method == "POST" && path == "/api/live/analyze" -> liveAnalyze(req)
+            req.method == "GET" && path == "/api/live/recipe" -> liveRecipe(req.query["name"] ?: "")
+            req.method == "POST" && path == "/api/live/update" -> liveUpdate(req)
+            req.method == "POST" && path == "/api/live/delete" -> liveDelete(req)
+            req.method == "GET" && path == "/api/live/preview" -> liveFile(req.query["name"] ?: "", "preview.gif", "image/gif")
+            req.method == "GET" && path == "/api/live/overlay" -> liveFile(req.query["name"] ?: "", "overlay.png", "image/png")
             req.method == "POST" && path == "/api/folders" -> folders(req)
             req.method == "POST" && path == "/api/move" -> move(req)
             req.method == "POST" && path == "/api/playlists" -> playlistsApi(req)
@@ -55,7 +62,7 @@ class WebApi(private val ctx: Context) {
     private fun state(): Response {
         val photos = store.list()
         val arr = JSONArray()
-        for (p in photos) arr.put(JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified))
+        for (p in photos) arr.put(JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified).put("live", store.hasLive(p)))
         val folderArr = JSONArray()
         val counts = photos.groupingBy { it.folder }.eachCount()
         for (f in store.folders()) folderArr.put(JSONObject().put("name", f).put("count", counts[f] ?: 0))
@@ -149,6 +156,64 @@ class WebApi(private val ctx: Context) {
         var deleted = 0
         for (i in 0 until names.length()) if (store.delete(names.getString(i))) deleted++
         return Response.json(JSONObject().put("deleted", deleted))
+    }
+
+    // ---- "living photos": analysis by the vision service, recipe editing ----
+
+    private fun liveJson(p: Photo): JSONObject {
+        val r = live.load(p) ?: return JSONObject().put("exists", false)
+        val layers = JSONArray()
+        for (l in r.layers) {
+            layers.put(
+                JSONObject().put("id", l.id).put("class", l.cls).put("class_ru", l.classRu).put("effect", l.effect)
+                    .put("enabled", l.enabled).put("strength", l.strength).put("confidence", l.confidence).put("area", l.area).put("note", l.note)
+            )
+        }
+        return JSONObject().put("exists", true).put("backend", r.backend).put("layers", layers)
+            .put("hasPreview", live.file(p, "preview.gif") != null).put("hasOverlay", live.file(p, "overlay.png") != null)
+    }
+
+    private fun liveAnalyze(req: Request): Response {
+        val photo = store.find(readJson(req).optString("name")) ?: return Response.error(404, "no such photo")
+        val base = prefs.visionUrl
+        if (base.isEmpty()) return Response.error(400, "the vision service address is not set (setting visionUrl)")
+        val bmp = BitmapLoader.thumbnail(photo.file, 1024) ?: return Response.error(415, "cannot decode the photo")
+        val jpeg = java.io.ByteArrayOutputStream().also { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
+        bmp.recycle()
+        val resp = try {
+            VisionClient.analyze(base, jpeg)
+        } catch (e: Exception) {
+            return Response.error(502, "vision service: ${e.message ?: e.javaClass.simpleName}")
+        }
+        val preview = resp.optString("preview_url").takeIf { it.isNotEmpty() }?.let { VisionClient.fetch(base, it) }
+        val overlay = resp.optString("overlay_url").takeIf { it.isNotEmpty() }?.let { VisionClient.fetch(base, it) }
+        live.save(photo, resp, preview, overlay)
+        return Response.json(liveJson(photo))
+    }
+
+    private fun liveRecipe(name: String): Response {
+        val photo = store.find(name) ?: return Response.error(404, "no such photo")
+        return Response.json(liveJson(photo))
+    }
+
+    private fun liveUpdate(req: Request): Response {
+        val j = readJson(req)
+        val photo = store.find(j.optString("name")) ?: return Response.error(404, "no such photo")
+        val patch = j.optJSONArray("layers") ?: return Response.error(400, "layers required")
+        if (!live.update(photo, patch)) return Response.error(404, "the photo has no animation yet")
+        return Response.json(liveJson(photo))
+    }
+
+    private fun liveDelete(req: Request): Response {
+        val photo = store.find(readJson(req).optString("name")) ?: return Response.error(404, "no such photo")
+        live.delete(photo)
+        return Response.json(JSONObject().put("ok", true))
+    }
+
+    private fun liveFile(name: String, file: String, type: String): Response {
+        val photo = store.find(name) ?: return Response.error(404, "no such photo")
+        val f = live.file(photo, file) ?: return Response.error(404, "not available")
+        return Response(200, type, file = f, headers = mapOf("Cache-Control" to "no-store"))
     }
 
     private fun folders(req: Request): Response {

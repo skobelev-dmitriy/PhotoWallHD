@@ -99,6 +99,9 @@ const settingsShape = {
   onMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   offMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   autostart: z.boolean(),
+  live: z.boolean().describe("show the gentle motion of 'living photos'"),
+  liveStrength: z.number().int().min(0).max(400).describe("global strength of the motion, percent"),
+  visionUrl: z.string().describe("address of the vision service, e.g. http://192.168.1.10:8090 ('' = not set)"),
   playlistMode: z.enum(["manual", "schedule"]).describe("manual = play the chosen playlist; schedule = each playlist plays in its own hours"),
   discoSource: z.enum(["remote", "mic", "output", "demo"]).describe("sound for disco mode: remote = a browser on a computer sends the sound (default), mic = projector microphone, output = device audio, demo = built-in beat"),
   discoVisual: z.enum(["auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"]),
@@ -256,6 +259,45 @@ function buildServer() {
       await new Promise((r) => setTimeout(r, 1500));
       const st = await call("/api/state");
       return ok(`Sent "${action}". Projector mode now: ${describeMode(st)}. Effect: ${st.settings.discoVisual}, sound: ${st.settings.discoSource}.`, { mode: st.mode, settings: st.settings });
+    },
+  );
+
+  const describeLive = (j) =>
+    j.exists
+      ? `Backend ${j.backend}; ${j.layers.length} region(s):\n` +
+        j.layers.map((l) => `- ${l.id}: ${l.class} → ${l.effect}, ${l.enabled ? "on" : "off"}, strength ${Math.round(l.strength * 100)}%, confidence ${Math.round(l.confidence * 100)}% (${l.note})`).join("\n")
+      : "This photo has no animation yet.";
+
+  server.registerTool(
+    "animate_photo",
+    {
+      title: "Living photo",
+      description:
+        "Make a photo 'alive' with gentle motion (water ripples, swaying foliage, drifting clouds, breathing). 'analyze' sends the photo to the vision service, which finds regions (water, foliage, sky, people, cloth) and recommends an effect for each; " +
+        "'show' lists the current regions; 'update' turns regions on/off or changes their strength (layers: [{id, enabled?, strength?}], strength 1 = recommended); 'remove' deletes the animation. " +
+        "Needs the vision service address (update_settings visionUrl). Photo name as in list_photos.",
+      inputSchema: {
+        action: z.enum(["analyze", "show", "update", "remove"]),
+        name: z.string().describe("photo name, e.g. 'Sea/wave.jpg'"),
+        layers: z.array(z.object({ id: z.string(), enabled: z.boolean().optional(), strength: z.number().min(0).max(4).optional() })).optional(),
+      },
+    },
+    async ({ action, name, layers }) => {
+      if (action === "analyze") {
+        const j = await call("/api/live/analyze", { method: "POST", json: { name } });
+        return ok(describeLive(j), j);
+      }
+      if (action === "show") {
+        const j = await call(`/api/live/recipe?name=${encodeURIComponent(name)}`);
+        return ok(describeLive(j), j);
+      }
+      if (action === "update") {
+        if (!layers?.length) throw new Error("update needs layers.");
+        const j = await call("/api/live/update", { method: "POST", json: { name, layers } });
+        return ok(describeLive(j), j);
+      }
+      await call("/api/live/delete", { method: "POST", json: { name } });
+      return ok(`Removed the animation of ${name}.`);
     },
   );
 

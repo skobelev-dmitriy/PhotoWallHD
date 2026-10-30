@@ -58,6 +58,11 @@
   .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0; }
   .checks label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
   .toolbar select { max-width: 220px; }
+  .tile .live { position: absolute; right: 6px; bottom: 24px; background: rgba(0,0,0,.6); border-radius: 8px; padding: 0 5px; font-size: 13px; }
+  .layer { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 8px; }
+  .layer .h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .layer .note { color: var(--dim); font-size: 13px; margin: 2px 0 4px 28px; }
+  .pics { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; } .pics img { max-width: 100%; flex: 1 1 280px; min-width: 0; border-radius: 8px; background: #0c0e14; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #000c; padding: 8px 16px; border-radius: 99px; opacity: 0; transition: .25s; pointer-events: none; }
   #toast.show { opacity: 1; }
 </style>
@@ -151,9 +156,23 @@
       <button class="ghost" id="selAll" onclick="selectAll()" data-t="selectAll">Выбрать все</button>
       <select id="moveSel"></select>
       <select id="plSel"></select>
+      <button class="ghost" id="liveBtn" onclick="openLive([...selected][0])" disabled data-t="liveBtn">✨ Оживить</button>
       <button class="danger" id="delBtn" onclick="deleteSelected()" disabled data-t="delete">Удалить</button>
     </div>
     <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="card" id="liveCard" hidden>
+    <h2>✨ <span data-t="liveTitle">Живое фото</span>: <span id="liveName" style="text-transform:none"></span></h2>
+    <div class="row">
+      <button id="liveAnalyze" onclick="liveAnalyze()" data-t="liveAnalyze">Найти области и предложить эффекты</button>
+      <button class="ghost" onclick="liveDelete()" data-t="liveRemove">Убрать анимацию</button>
+      <button class="ghost" onclick="$('#liveCard').hidden = true" data-t="close">Закрыть</button>
+    </div>
+    <div class="muted" id="liveStatus" style="margin-top:8px"></div>
+    <div class="pics" id="livePics" hidden><img id="liveOverlay" alt=""><img id="livePreview" alt=""></div>
+    <div id="liveLayers"></div>
+    <div class="row" id="liveSaveRow" hidden><button onclick="liveSave()" data-t="save">Сохранить</button></div>
   </div>
 
   <div class="card">
@@ -225,6 +244,15 @@
       <label class="f inline"><input type="checkbox" data-key="autostart" data-type="bool"><span data-t="autostart">Автозапуск показа</span></label>
     </div>
     <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <h2 data-t="liveSettings">Живые фото</h2>
+    <div class="settings">
+      <label class="f inline"><input type="checkbox" data-key="live" data-type="bool"><span data-t="liveOn">Показывать лёгкое движение (вода, листва, небо)</span></label>
+      <label class="f"><span><span data-t="liveStrength">Сила движения</span>: <span id="liveStrengthV"></span>%</span>
+        <input type="range" min="0" max="300" step="10" data-key="liveStrength" data-type="int" id="liveStrengthR"></label>
+      <label class="f" style="grid-column: 1 / -1"><span data-t="visionUrl">Адрес сервиса распознавания (например, http://192.168.1.10:8090)</span>
+        <input type="text" data-key="visionUrl" placeholder="http://192.168.1.10:8090"></label>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
     <div class="row">
       <label class="f" style="flex:1;min-width:220px"><span data-t="pin">PIN-код для этой страницы (необязательно)</span>
         <input type="password" id="pin" autocomplete="new-password" maxlength="32"></label>
@@ -239,6 +267,10 @@ const $ = s => document.querySelector(s);
 const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 const T = {
   en: {
+    liveBtn: '✨ Animate', liveTitle: 'Living photo', liveAnalyze: 'Find regions and suggest effects', liveRemove: 'Remove animation', close: 'Close',
+    liveNone: 'No animation yet. Press the button: the vision service will find water, foliage, sky and people and suggest effects.', liveLayers: 'regions', liveBusy: 'Analyzing… (up to a minute)',
+    liveSettings: 'Living photos', liveOn: 'Show gentle motion (water, foliage, sky)', liveStrength: 'Motion strength', visionUrl: 'Vision service address (e.g. http://192.168.1.10:8090)',
+    liveHint: 'The preview shows the recommended motion exaggerated x3; on the projector it is much subtler.', liveFail: 'Analysis failed', liveDelConfirm: 'Remove the animation of this photo?', liveSaved: 'Saved',
     allPhotos: 'All photos', noFolder: 'No folder', newFolder: 'Folder', renameFolder: 'Rename folder', deleteFolder: 'Delete folder',
     plFromFolder: '▶ Playlist from this folder', pickFolder: '📁 Upload a whole folder', moveTo: 'Move to…', toPlaylist: 'Add to playlist…', newFolderEllipsis: 'New folder…', newPlaylistEllipsis: 'New playlist…',
     playlists: 'Playlists', plHint: 'A playlist is a set of folders and single photos. "Play" starts it now; with the box below, playlists switch on by themselves in their hours (e.g. a morning and an evening one).',
@@ -266,6 +298,10 @@ const T = {
     s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
   },
   ru: {
+    liveBtn: '✨ Оживить', liveTitle: 'Живое фото', liveAnalyze: 'Найти области и предложить эффекты', liveRemove: 'Убрать анимацию', close: 'Закрыть',
+    liveNone: 'Анимации пока нет. Нажмите кнопку: сервис распознавания найдёт воду, листву, небо, людей и предложит эффекты.', liveLayers: 'областей', liveBusy: 'Анализирую… (до минуты)',
+    liveSettings: 'Живые фото', liveOn: 'Показывать лёгкое движение (вода, листва, небо)', liveStrength: 'Сила движения', visionUrl: 'Адрес сервиса распознавания (например, http://192.168.1.10:8090)',
+    liveHint: 'Предпросмотр показывает рекомендуемое движение, усиленное в 3 раза; на проекторе оно гораздо тоньше.', liveFail: 'Не удалось проанализировать', liveDelConfirm: 'Убрать анимацию этого фото?', liveSaved: 'Сохранено',
     allPhotos: 'Все фото', noFolder: 'Без папки', newFolder: 'Папка', renameFolder: 'Переименовать папку', deleteFolder: 'Удалить папку',
     plFromFolder: '▶ Плейлист из этой папки', pickFolder: '📁 Загрузить папку целиком', moveTo: 'Переместить в…', toPlaylist: 'Добавить в плейлист…', newFolderEllipsis: 'Новая папка…', newPlaylistEllipsis: 'Новый плейлист…',
     playlists: 'Плейлисты', plHint: 'Плейлист — набор папок и отдельных фото.', bySchedule: 'Переключать плейлисты по расписанию', newPlaylist: '+ Новый плейлист', plName: 'Название', plFolders: 'Папки в плейлисте', plSchedule: 'Играть в определённые часы', plFrom: 'С', plTo: 'До',
@@ -319,7 +355,7 @@ const pad = n => String(n).padStart(2, '0');
 async function load(quiet) {
   const r = await api('/api/state');
   const next = await r.json();
-  const sig = x => x.photos.map(p => p.name + p.modified).join('|') + JSON.stringify(x.playlists) + JSON.stringify(x.folders) + x.effectivePlaylist;
+  const sig = x => x.photos.map(p => p.name + p.modified + (p.live ? 'L' : '')).join('|') + JSON.stringify(x.playlists) + JSON.stringify(x.folders) + x.effectivePlaylist;
   const changed = !state || sig(state) !== sig(next);
   state = next;
   renderStatus();
@@ -378,6 +414,7 @@ function renderGrid() {
     tile.querySelector('a').href = '/photo/' + url + '?pin=' + encodeURIComponent(PIN);
     tile.querySelector('a').onclick = e => e.stopPropagation();
     tile.querySelector('.cap').textContent = p.name;
+    if (p.live) { const b = document.createElement('div'); b.className = 'live'; b.textContent = '✨'; tile.appendChild(b); }
     tile.onclick = () => { selected.has(p.name) ? selected.delete(p.name) : selected.add(p.name); tile.classList.toggle('sel'); updateSel(); };
     grid.appendChild(tile);
   }
@@ -399,6 +436,7 @@ function updateSel() {
   $('#delBtn').textContent = selected.size ? t('delete') + ' (' + selected.size + ')' : t('delete');
   $('#selAll').textContent = selected.size ? t('clearSel') : t('selectAll');
   const has = selected.size > 0;
+  $('#liveBtn').disabled = selected.size !== 1;
   const move = $('#moveSel'), pl = $('#plSel');
   move.disabled = pl.disabled = !has;
   fillSelect(move, t('moveTo'), [['__root', t('noFolder')], ...state.folders.map(f => ['f:' + f.name, f.name]), ['__new', t('newFolderEllipsis')]]);
@@ -538,6 +576,7 @@ function renderSettings() {
   });
   $('#dimv').textContent = s.dim;
   $('#sensv').textContent = s.discoSens;
+  $('#liveStrengthV').textContent = s.liveStrength;
 }
 document.querySelectorAll('[data-key]').forEach(el => {
   el.addEventListener(el.type === 'range' ? 'input' : 'change', async () => {
@@ -548,6 +587,7 @@ document.querySelectorAll('[data-key]').forEach(el => {
     else v = el.value;
     if (el.id === 'dim') $('#dimv').textContent = v;
     if (el.id === 'sens') $('#sensv').textContent = v;
+    if (el.id === 'liveStrengthR') $('#liveStrengthV').textContent = v;
     clearTimeout(el._t);
     el._t = setTimeout(async () => { await post('/api/settings', { [el.dataset.key]: v }); toast(t('saved')); }, el.type === 'range' ? 300 : 0);
   });
@@ -639,6 +679,66 @@ async function uploadAll(items) {
   await load();
   if (folders.length === 1 && folders[0]) { curFolder = folders[0]; renderGrid(); }
   setTimeout(() => rows.forEach(r => r.el.classList.contains('ok') && r.el.remove()), 4000);
+}
+
+// ---- living photo: analyze with the vision service, tune the regions ----
+let liveName = null;
+const pq = () => (PIN ? '&pin=' + encodeURIComponent(PIN) : '');
+async function openLive(name) {
+  if (!name) return;
+  liveName = name;
+  $('#liveName').textContent = name;
+  $('#liveCard').hidden = false;
+  $('#liveCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const r = await api('/api/live/recipe?name=' + encodeURIComponent(name));
+  renderLive(await r.json());
+}
+function renderLive(j) {
+  const pics = $('#livePics'), box = $('#liveLayers');
+  box.innerHTML = '';
+  if (!j.exists) {
+    $('#liveStatus').textContent = t('liveNone'); pics.hidden = true; $('#liveSaveRow').hidden = true; return;
+  }
+  $('#liveStatus').textContent = j.backend + ' · ' + j.layers.length + ' ' + t('liveLayers') + '. ' + t('liveHint');
+  const bust = '&t=' + Date.now() + pq();
+  $('#liveOverlay').src = j.hasOverlay ? '/api/live/overlay?name=' + encodeURIComponent(liveName) + bust : '';
+  $('#livePreview').src = j.hasPreview ? '/api/live/preview?name=' + encodeURIComponent(liveName) + bust : '';
+  pics.hidden = !(j.hasOverlay || j.hasPreview);
+  j.layers.forEach(l => {
+    const el = document.createElement('div'); el.className = 'layer'; el.dataset.id = l.id;
+    el.innerHTML = '<div class="h"><input type="checkbox" class="en"><b></b><span class="muted"></span></div><div class="note"></div>' +
+      '<label class="f" style="margin-left:28px"><span><span data-t="liveStrength"></span>: <span class="sv"></span>%</span><input type="range" min="0" max="300" step="10" class="st"></label>';
+    el.querySelector('.en').checked = l.enabled;
+    el.querySelector('b').textContent = l.class_ru + ' (' + l.id + ') → ' + l.effect;
+    el.querySelector('.muted').textContent = Math.round(l.confidence * 100) + '% · ' + Math.round(l.area * 100) + '%';
+    el.querySelector('.note').textContent = l.note;
+    el.querySelector('[data-t]').textContent = t('liveStrength');
+    const st = el.querySelector('.st'), sv = el.querySelector('.sv');
+    st.value = Math.round(l.strength * 100); sv.textContent = st.value;
+    st.oninput = () => { sv.textContent = st.value; };
+    box.appendChild(el);
+  });
+  $('#liveSaveRow').hidden = false;
+}
+async function liveAnalyze() {
+  const b = $('#liveAnalyze'); b.disabled = true; $('#liveStatus').textContent = t('liveBusy');
+  try {
+    const r = await post('/api/live/analyze', { name: liveName });
+    if (!r.ok) { $('#liveStatus').textContent = t('liveFail') + ': ' + ((await r.json()).error || r.status); return; }
+    renderLive(await r.json()); load(true);
+  } catch (e) { $('#liveStatus').textContent = t('liveFail'); }
+  finally { b.disabled = false; }
+}
+async function liveSave() {
+  const layers = [...document.querySelectorAll('#liveLayers .layer')].map(el => ({
+    id: el.dataset.id, enabled: el.querySelector('.en').checked, strength: el.querySelector('.st').value / 100 }));
+  await post('/api/live/update', { name: liveName, layers });
+  toast(t('liveSaved'));
+}
+async function liveDelete() {
+  if (!confirm(t('liveDelConfirm'))) return;
+  await post('/api/live/delete', { name: liveName });
+  renderLive({ exists: false }); load(true);
 }
 
 // ---- live preview: a still of the current photo (no effects), or ~2 fps stills of the disco screen ----

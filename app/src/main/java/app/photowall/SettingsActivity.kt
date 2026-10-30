@@ -91,6 +91,9 @@ class SettingsActivity : Activity() {
         timeRow(tr("Выключать в", "Turn off at"), { prefs.offMinutes }, { prefs.offMinutes = it })
         toggle(tr("Автозапуск показа", "Auto-start slideshow"), { prefs.autostart }, { prefs.autostart = it })
 
+        toggle(tr("Живые фото (лёгкое движение)", "Living photos (gentle motion)"), { prefs.live }, { prefs.live = it })
+        cycle(tr("Сила движения", "Motion strength"), listOf(0, 50, 100, 150, 200, 300), { prefs.liveStrength }, { prefs.liveStrength = it }) { "$it%" }
+
         cycle(tr("Дискотека: звук", "Disco: sound source"), listOf("remote", "mic", "output", "demo"), { prefs.discoSource }, { prefs.discoSource = it }) {
             when (it) {
                 "remote" -> tr("браузер (звук с компьютера)", "browser (sound from a computer)")

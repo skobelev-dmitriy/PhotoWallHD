@@ -184,6 +184,7 @@ class HttpServer(private val handler: (Request) -> Response) {
         413 -> "Payload Too Large"
         415 -> "Unsupported Media Type"
         500 -> "Internal Server Error"
+        502 -> "Bad Gateway"
         507 -> "Insufficient Storage"
         else -> "OK"
     }
