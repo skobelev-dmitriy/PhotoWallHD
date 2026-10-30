@@ -8,12 +8,15 @@
 |---|---|
 | `GET /` | Страница управления. |
 | `GET /api/ping` | `{"ok":true,"pin":false}`: проверка, что сервер жив, и нужен ли PIN. |
-| `GET /api/state` | Фото (`name`, `size`, `modified`), настройки, адрес, `active` (идёт ли показ), занятое и свободное место. |
+| `GET /api/state` | Фото (`name` — путь вида `Папка/файл.jpg`, `folder`, `size`, `modified`), `folders` (имя и число фото), `rootCount`, `playlists` (с числом фото `count`), `effectivePlaylist` (что играет сейчас), настройки, адрес, `active` (идёт ли показ), занятое и свободное место. |
 | `GET /api/thumb/<имя>` | JPEG-миниатюра до 480 px (кэшируется); `?s=960` — до 960 px. |
 | `GET /api/now` | Что на экране: `mode` (`slideshow`/`disco`/`idle`); для показа — `photo`, `paused`, `night`; для дискотеки — `effect`, `effectTitle`, `auto`, `source`. |
 | `GET /api/frame` | Снимок экрана дискотеки (JPEG 640 px) для предпросмотра. Вызывайте не чаще 2 раз в секунду; ответ кэшируется на 400 мс. `404`, если дискотека не открыта. |
 | `GET /photo/<имя>` | Оригинал. |
-| `POST /api/upload` | Тело — **сам файл**, заголовок `X-Filename: <имя, URL-кодированное>`. Ответ `{"name","size"}`. Ошибки: `400` пусто, `413` больше 300 МБ, `415` не изображение, `507` нет места. Если имя занято, добавляется ` (1)`. |
+| `POST /api/upload` | Тело — **сам файл**, заголовок `X-Filename: <имя, URL-кодированное>`; необязательный `X-Folder: <папка, URL-кодированное>` — положить в папку (создаётся при необходимости). Ответ `{"name","size"}`. Ошибки: `400` пусто, `413` больше 300 МБ, `415` не изображение, `507` нет места. Если имя занято, добавляется ` (1)`. |
+| `POST /api/folders` | `{"action":"create"\|"rename"\|"delete","name":"...","to":"...","deletePhotos":false}`. При `delete` без `deletePhotos` фото переезжают из папки наружу. `400` при ошибке (нет папки, имя занято). |
+| `POST /api/move` | `{"names":["a.jpg","Море/b.jpg"],"folder":"Дети"}` — переместить фото в папку (`""` — наружу). Ответ `{"moved":N}`. |
+| `POST /api/playlists` | `{"action":"save","playlist":{id,name,folders,photos,scheduleEnabled,from,to}}` (пустой `id` — создать), `{"action":"delete","id"}`, `{"action":"play","id"}` (`id` пустой — все фото; включает ручной режим). |
 | `POST /api/delete` | `{"names":["a.jpg","b.jpg"]}`: удалить фото. |
 | `POST /api/settings` | JSON с любыми полями из настроек, ответ — текущие настройки. Поле `pin` задаёт или снимает PIN (пустая строка). |
 | `POST /api/audio` | Кадр звука из браузера для дискотеки: `{"b":[48 чисел],"w":[256 чисел],"r":число}` (полосы ×10000, волна −100..100, громкость ×10000). Ответ: `{"ok":true,"mode":"disco","source":"remote"}`. |
@@ -24,7 +27,7 @@
 
 `intervalSec` (3–86400), `transition` (`fade`/`slide`/`none`), `fit` (`fit`/`fill`/`auto`), `kenBurns`, `shuffle`,
 `clock`, `clockPos` (`tl`/`tr`/`bl`/`br`/`bc`), `clockSize` (`s`/`m`/`l`), `clock24`, `clockDate`, `dim` (0–80 %),
-`scheduleEnabled`, `onMinutes`, `offMinutes` (минуты от полуночи), `autostart`, `pin`.
+`scheduleEnabled`, `onMinutes`, `offMinutes` (минуты от полуночи), `autostart`, `pin`, `activePlaylist` (id или `""`), `playlistMode` (`manual`/`schedule`).
 Режим дискотеки: `discoSource` (`mic`/`output`/`demo`), `discoVisual` (`auto`/`bars`/`circle`/`rings`/`wave`/`lamps`/`fireworks`/`warp`/`hills`),
 `discoAutoSec` (5–600), `discoSens` (40–400 %), `discoFlash`.
 

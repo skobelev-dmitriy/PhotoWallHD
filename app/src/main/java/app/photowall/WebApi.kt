@@ -10,6 +10,7 @@ import java.net.URLDecoder
 class WebApi(private val ctx: Context) {
     private val prefs = Prefs(ctx)
     private val store = PhotoStore.get(ctx)
+    private val playlists = Playlists.get(ctx)
     private val pages = HashMap<String, ByteArray>()
 
     fun handle(req: Request): Response {
@@ -36,6 +37,9 @@ class WebApi(private val ctx: Context) {
             req.method == "GET" && path.startsWith("/photo/") -> original(path.removePrefix("/photo/"))
             req.method == "POST" && path == "/api/upload" -> upload(req)
             req.method == "POST" && path == "/api/delete" -> delete(req)
+            req.method == "POST" && path == "/api/folders" -> folders(req)
+            req.method == "POST" && path == "/api/move" -> move(req)
+            req.method == "POST" && path == "/api/playlists" -> playlistsApi(req)
             req.method == "POST" && path == "/api/settings" -> settings(req)
             req.method == "POST" && path == "/api/control" -> control(req)
             req.method == "POST" && path == "/api/audio" -> audio(req)
@@ -51,9 +55,18 @@ class WebApi(private val ctx: Context) {
     private fun state(): Response {
         val photos = store.list()
         val arr = JSONArray()
-        for (p in photos) arr.put(JSONObject().put("name", p.name).put("size", p.size).put("modified", p.modified))
+        for (p in photos) arr.put(JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified))
+        val folderArr = JSONArray()
+        val counts = photos.groupingBy { it.folder }.eachCount()
+        for (f in store.folders()) folderArr.put(JSONObject().put("name", f).put("count", counts[f] ?: 0))
+        val plArr = JSONArray()
+        for (p in playlists.all()) plArr.put(playlists.toJson(p).put("count", playlists.resolve(photos, p).size))
         val obj = JSONObject()
             .put("photos", arr)
+            .put("folders", folderArr)
+            .put("rootCount", counts[""] ?: 0)
+            .put("playlists", plArr)
+            .put("effectivePlaylist", playlists.effectiveKey(prefs))
             .put("settings", prefs.toJson())
             .put("url", Net.url(ServerService.port))
             .put("active", Remote.active)
@@ -111,12 +124,19 @@ class WebApi(private val ctx: Context) {
                 it
             }
         } ?: "photo.jpg"
+        val folder = req.headers["x-folder"]?.let {
+            try {
+                URLDecoder.decode(it, "UTF-8")
+            } catch (e: IllegalArgumentException) {
+                it
+            }
+        } ?: ""
         if (req.contentLength <= 0) return Response.error(400, "empty body")
         if (req.contentLength > MAX_UPLOAD) return Response.error(413, "file too large")
         if (store.dir.usableSpace < req.contentLength + 50L * 1024 * 1024) return Response.error(507, "not enough space")
         return try {
-            val p = store.save(raw, req.body, req.contentLength)
-            Response.json(JSONObject().put("name", p.name).put("size", p.size))
+            val p = store.save(raw, req.body, req.contentLength, folder)
+            Response.json(JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size))
         } catch (e: IllegalArgumentException) {
             Response.error(415, "unsupported image")
         } catch (e: IOException) {
@@ -129,6 +149,57 @@ class WebApi(private val ctx: Context) {
         var deleted = 0
         for (i in 0 until names.length()) if (store.delete(names.getString(i))) deleted++
         return Response.json(JSONObject().put("deleted", deleted))
+    }
+
+    private fun folders(req: Request): Response {
+        val j = readJson(req)
+        val name = j.optString("name")
+        try {
+            when (j.optString("action")) {
+                "create" -> store.createFolder(name)
+                "rename" -> {
+                    val to = store.renameFolder(name, j.optString("to"))
+                    playlists.renameFolder(name, to)
+                }
+                "delete" -> {
+                    store.deleteFolder(name, j.optBoolean("deletePhotos", false))
+                    playlists.removeFolder(name)
+                }
+                else -> return Response.error(400, "unknown action")
+            }
+        } catch (e: IllegalArgumentException) {
+            return Response.error(400, e.message ?: "bad request")
+        }
+        return Response.json(JSONObject().put("ok", true))
+    }
+
+    private fun move(req: Request): Response {
+        val j = readJson(req)
+        val arr = j.optJSONArray("names") ?: return Response.error(400, "names required")
+        val names = (0 until arr.length()).map { arr.getString(it) }
+        val moved = store.move(names, j.optString("folder", ""))
+        playlists.renamePhotos(moved)
+        return Response.json(JSONObject().put("moved", moved.size))
+    }
+
+    private fun playlistsApi(req: Request): Response {
+        val j = readJson(req)
+        when (j.optString("action")) {
+            "save" -> {
+                val body = j.optJSONObject("playlist") ?: return Response.error(400, "playlist required")
+                return Response.json(playlists.toJson(playlists.save(playlists.fromJson(body))))
+            }
+            "delete" -> playlists.delete(j.optString("id"))
+            "play" -> {
+                val id = j.optString("id", "")
+                if (id.isNotEmpty() && playlists.find(id) == null) return Response.error(404, "no such playlist")
+                prefs.activePlaylist = id
+                prefs.playlistMode = "manual"
+                Remote.send("next")
+            }
+            else -> return Response.error(400, "unknown action")
+        }
+        return Response.json(JSONObject().put("ok", true))
     }
 
     private fun settings(req: Request): Response {

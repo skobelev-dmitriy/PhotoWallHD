@@ -48,6 +48,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
 
     private val prefs = Prefs(context)
     private val store = PhotoStore.get(context)
+    private val playlists = Playlists.get(context)
     private val handler = Handler(Looper.getMainLooper())
     private val loader = Executors.newSingleThreadExecutor()
     private val dm = context.resources.displayMetrics
@@ -70,6 +71,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     private var playlist: List<String> = emptyList()
     private var index = -1
     private var seenVersion = -1
+    private var activeKey = ""
 
     private var cacheName: String? = null
     private var cacheBmp: Bitmap? = null
@@ -99,6 +101,8 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     private val nightTick = object : Runnable {
         override fun run() {
             checkNight()
+            // a playlist's time window may have just started or ended
+            if (running && !night && playlists.effectiveKey(prefs) != activeKey) go(1)
             handler.postDelayed(this, 15_000)
         }
     }
@@ -190,10 +194,18 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     // ---- playlist ----
 
     private fun syncPlaylist(reshuffle: Boolean) {
-        val names = store.list().map { it.name }
+        val eff = playlists.effective(prefs)
+        val key = eff?.id ?: ""
+        val names = playlists.resolve(store.list(), eff)
+        val switched = key != activeKey
+        activeKey = key
+        if (switched) {
+            playlist = emptyList()
+            index = -1
+        }
         val current = playlist.getOrNull(index)
         playlist = if (prefs.shuffle) {
-            if (reshuffle || playlist.isEmpty()) names.shuffled()
+            if (reshuffle || switched || playlist.isEmpty()) names.shuffled()
             else playlist.filter { it in names } + names.filter { it !in playlist }.shuffled()
         } else {
             names
@@ -211,7 +223,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         if (!running || night) return
         handler.removeCallbacks(advance)
 
-        if (playlist.isEmpty() || store.version != seenVersion) syncPlaylist(false)
+        if (playlist.isEmpty() || store.version != seenVersion || playlists.effectiveKey(prefs) != activeKey) syncPlaylist(false)
         var next = index + delta
         if (next >= playlist.size) {
             syncPlaylist(true)
@@ -376,9 +388,15 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         firstImage = true
         val base = min(width, height).takeIf { it > 0 } ?: min(dm.widthPixels, dm.heightPixels)
         emptyView.setTextSize(TypedValue.COMPLEX_UNIT_PX, base * 0.045f)
-        emptyView.text = tr("Пока нет ни одной фотографии", "No photos yet") + "\n\n" +
-            tr("Откройте на телефоне или компьютере\n(в той же сети Wi-Fi):", "Open on your phone or computer\n(same Wi-Fi network):") +
-            "\n" + Net.url(ServerService.port)
+        emptyView.text = if (store.list().isNotEmpty()) {
+            tr("В выбранном плейлисте нет фотографий", "The selected playlist has no photos") + "\n\n" +
+                tr("Добавьте в него папки или фото на странице управления:", "Add folders or photos to it on the control page:") +
+                "\n" + Net.url(ServerService.port)
+        } else {
+            tr("Пока нет ни одной фотографии", "No photos yet") + "\n\n" +
+                tr("Откройте на телефоне или компьютере\n(в той же сети Wi-Fi):", "Open on your phone or computer\n(same Wi-Fi network):") +
+                "\n" + Net.url(ServerService.port)
+        }
         emptyView.visibility = VISIBLE
     }
 

@@ -6,6 +6,13 @@ import java.util.Calendar
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
+/** True if [now] (minutes from midnight) is inside [on]..[off]; windows may cross midnight, equal ends mean always. */
+fun inWindow(now: Int, on: Int, off: Int): Boolean = when {
+    on == off -> true
+    on < off -> now in on until off
+    else -> now >= on || now < off
+}
+
 class Prefs(context: Context) {
     private val sp = context.applicationContext.getSharedPreferences("photowall", Context.MODE_PRIVATE)
 
@@ -33,6 +40,10 @@ class Prefs(context: Context) {
 
     var pin by strPref("pin", "", null)
 
+    /** Id of the playlist to play ("" = all photos) and how it is chosen: "manual" or by each playlist's time window. */
+    var activePlaylist by strPref("activePlaylist", "", null)
+    var playlistMode by strPref("playlistMode", "manual", setOf("manual", "schedule"))
+
     // disco mode
     var discoSource by strPref("discoSource", "remote", setOf("remote", "mic", "output", "demo"))
     var discoVisual by strPref("discoVisual", "auto", setOf("auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"))
@@ -45,13 +56,7 @@ class Prefs(context: Context) {
         if (!scheduleEnabled) return true
         val c = Calendar.getInstance()
         val now = c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)
-        val on = onMinutes
-        val off = offMinutes
-        return when {
-            on == off -> true
-            on < off -> now in on until off
-            else -> now >= on || now < off
-        }
+        return inWindow(now, onMinutes, offMinutes)
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -71,6 +76,8 @@ class Prefs(context: Context) {
         put("offMinutes", offMinutes)
         put("autostart", autostart)
         put("hasPin", pin.isNotEmpty())
+        put("activePlaylist", activePlaylist)
+        put("playlistMode", playlistMode)
         put("discoSource", discoSource)
         put("discoVisual", discoVisual)
         put("discoAutoSec", discoAutoSec)
@@ -99,6 +106,8 @@ class Prefs(context: Context) {
         if (j.has("discoAutoSec")) discoAutoSec = j.optInt("discoAutoSec", discoAutoSec)
         if (j.has("discoSens")) discoSens = j.optInt("discoSens", discoSens)
         if (j.has("discoFlash")) discoFlash = j.optBoolean("discoFlash", discoFlash)
+        if (j.has("activePlaylist")) activePlaylist = j.optString("activePlaylist", activePlaylist)
+        if (j.has("playlistMode")) playlistMode = j.optString("playlistMode", playlistMode)
         if (j.has("pin")) pin = j.optString("pin", "").trim().take(32)
     }
 

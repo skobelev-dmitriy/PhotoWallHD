@@ -99,6 +99,7 @@ const settingsShape = {
   onMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   offMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   autostart: z.boolean(),
+  playlistMode: z.enum(["manual", "schedule"]).describe("manual = play the chosen playlist; schedule = each playlist plays in its own hours"),
   discoSource: z.enum(["remote", "mic", "output", "demo"]).describe("sound for disco mode: remote = a browser on a computer sends the sound (default), mic = projector microphone, output = device audio, demo = built-in beat"),
   discoVisual: z.enum(["auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"]),
   discoAutoSec: z.number().int().min(5).max(600),
@@ -151,13 +152,16 @@ function buildServer() {
     "list_photos",
     {
       title: "List photos",
-      description: "List the photos stored on the projector (oldest first, which is the slideshow order).",
+      description: "List the photos stored on the projector, with their folders. Photo names are paths like 'Sea/wave.jpg'. Optionally only one folder ('' = photos outside folders).",
+      inputSchema: { folder: z.string().optional() },
       annotations: { readOnlyHint: true },
     },
-    async () => {
+    async ({ folder }) => {
       const s = await call("/api/state");
-      const lines = s.photos.map((p) => `${p.name}  ${(p.size / 1e6).toFixed(1)} MB  ${new Date(p.modified).toISOString().slice(0, 10)}`);
-      return ok(lines.length ? lines.join("\n") : "No photos yet.", { photos: s.photos });
+      const photos = folder === undefined ? s.photos : s.photos.filter((p) => p.folder === folder);
+      const lines = photos.map((p) => `${p.name}  ${(p.size / 1e6).toFixed(1)} MB  ${new Date(p.modified).toISOString().slice(0, 10)}`);
+      const head = `Folders: ${s.folders.map((f) => `${f.name} (${f.count})`).join(", ") || "none"}; photos outside folders: ${s.rootCount}`;
+      return ok(head + "\n" + (lines.length ? lines.join("\n") : "No photos."), { photos, folders: s.folders });
     },
   );
 
@@ -169,9 +173,10 @@ function buildServer() {
       inputSchema: {
         source: z.string().describe("http(s) URL of the image, or a local file path"),
         name: z.string().optional().describe("file name to store it under, e.g. monet.jpg"),
+        folder: z.string().optional().describe("folder to put it in (created if needed); omit for no folder"),
       },
     },
-    async ({ source, name }) => {
+    async ({ source, name, folder }) => {
       let bytes;
       let fileName = name;
       if (/^https?:\/\//i.test(source)) {
@@ -189,8 +194,8 @@ function buildServer() {
         fileName ||= basename(source);
       }
       if (bytes.length === 0 || bytes.length > MAX_UPLOAD) throw new Error("The image is empty or larger than 300 MB.");
-      const r = await call("/api/upload", { method: "POST", body: bytes, headers: { "X-Filename": encodeURIComponent(fileName) } });
-      return ok(`Added ${r.name} (${(r.size / 1e6).toFixed(1)} MB) to the projector.`, r);
+      const r = await call("/api/upload", { method: "POST", body: bytes, headers: { "X-Filename": encodeURIComponent(fileName), ...(folder ? { "X-Folder": encodeURIComponent(folder) } : {}) } });
+      return ok(`Added ${r.name} (${(r.size / 1e6).toFixed(1)} MB) to the projector${r.folder ? ` (folder ${r.folder})` : ""}.`, r);
     },
   );
 
@@ -251,6 +256,111 @@ function buildServer() {
       await new Promise((r) => setTimeout(r, 1500));
       const st = await call("/api/state");
       return ok(`Sent "${action}". Projector mode now: ${describeMode(st)}. Effect: ${st.settings.discoVisual}, sound: ${st.settings.discoSource}.`, { mode: st.mode, settings: st.settings });
+    },
+  );
+
+  server.registerTool(
+    "folders",
+    {
+      title: "Manage photo folders",
+      description: "Create, rename or delete folders of photos, or move photos into a folder. Photo names come from list_photos (e.g. 'Sea/wave.jpg'); folder '' for move means 'out of any folder'. delete removes the photos inside only if delete_photos is true, otherwise they move out of the folder.",
+      inputSchema: {
+        action: z.enum(["create", "rename", "delete", "move"]),
+        name: z.string().optional().describe("folder name (create / rename / delete)"),
+        to: z.string().optional().describe("new folder name (rename)"),
+        delete_photos: z.boolean().optional().describe("delete: also delete the photos inside"),
+        names: z.array(z.string()).optional().describe("move: photo names"),
+        folder: z.string().optional().describe("move: destination folder, '' for none"),
+      },
+      annotations: { destructiveHint: true },
+    },
+    async ({ action, name, to, delete_photos, names, folder }) => {
+      if (action === "move") {
+        if (!names?.length || folder === undefined) throw new Error("move needs names and folder.");
+        const r = await call("/api/move", { method: "POST", json: { names, folder } });
+        return ok(`Moved ${r.moved} photo(s) to ${folder || "no folder"}.`, r);
+      }
+      if (!name) throw new Error(`${action} needs a folder name.`);
+      await call("/api/folders", { method: "POST", json: { action, name, to, deletePhotos: delete_photos === true } });
+      return ok(`Folder ${action} done: ${name}${to ? ` -> ${to}` : ""}.`);
+    },
+  );
+
+  const hm = (s) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
+    if (!m || +m[1] > 23 || +m[2] > 59) throw new Error('Time must be HH:MM, e.g. "18:30".');
+    return +m[1] * 60 + +m[2];
+  };
+  const fmtHm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const describePlaylist = (p, active) =>
+    `${p.name} [${p.id}] — ${p.count} photos; folders: ${p.folders.map((f) => f || "(no folder)").join(", ") || "none"}; single photos: ${p.photos.length}; ` +
+    `${p.scheduleEnabled ? `plays ${fmtHm(p.from)}–${fmtHm(p.to)}` : "on demand"}${p.id === active ? "  <- playing now" : ""}`;
+
+  server.registerTool(
+    "playlists",
+    {
+      title: "Playlists",
+      description:
+        "Playlists are named sets of photo folders and single photos; each can have a daily time window (e.g. 'Morning' 07:00–12:00, 'Evening' 18:00–23:00). " +
+        "list shows them, create/update/delete edit them, play starts one now (id 'all' = all photos, no playlist), set_schedule_mode turns automatic switching by time windows on or off. " +
+        "id may be the playlist id or its exact name. For update only the fields you pass change.",
+      inputSchema: {
+        action: z.enum(["list", "create", "update", "delete", "play", "set_schedule_mode"]),
+        id: z.string().optional(),
+        name: z.string().optional(),
+        folders: z.array(z.string()).optional().describe('folder names; "" means photos outside folders'),
+        photos: z.array(z.string()).optional().describe("single photo names, as in list_photos"),
+        schedule_enabled: z.boolean().optional(),
+        from: z.string().optional().describe("HH:MM start of the daily window"),
+        to: z.string().optional().describe("HH:MM end of the daily window (may be past midnight, e.g. from 22:00 to 02:00)"),
+        by_schedule: z.boolean().optional().describe("set_schedule_mode: true = switch playlists by their time windows"),
+      },
+    },
+    async (a) => {
+      const s = await call("/api/state");
+      const find = (key) => s.playlists.find((p) => p.id === key || p.name.toLowerCase() === String(key).toLowerCase());
+      if (a.action === "list") {
+        const lines = s.playlists.map((p) => describePlaylist(p, s.effectivePlaylist));
+        return ok(`Mode: ${s.settings.playlistMode}\n` + (lines.join("\n") || "No playlists yet (all photos play)."), { playlists: s.playlists, mode: s.settings.playlistMode });
+      }
+      if (a.action === "set_schedule_mode") {
+        if (a.by_schedule === undefined) throw new Error("Pass by_schedule true or false.");
+        await call("/api/settings", { method: "POST", json: { playlistMode: a.by_schedule ? "schedule" : "manual" } });
+        return ok(`Playlists now switch ${a.by_schedule ? "by their time windows" : "only when you play one"}.`);
+      }
+      if (a.action === "create" || a.action === "update") {
+        const base = a.action === "update"
+          ? find(a.id)
+          : { id: "", name: "", folders: [], photos: [], scheduleEnabled: false, from: 480, to: 720 };
+        if (!base) throw new Error(`No playlist "${a.id}".`);
+        const p = { ...base };
+        if (a.name !== undefined) p.name = a.name;
+        if (a.folders) p.folders = a.folders;
+        if (a.photos) p.photos = a.photos;
+        if (a.from !== undefined) p.from = hm(a.from);
+        if (a.to !== undefined) p.to = hm(a.to);
+        if (a.schedule_enabled !== undefined) p.scheduleEnabled = a.schedule_enabled;
+        else if (a.from !== undefined || a.to !== undefined) p.scheduleEnabled = true;
+        if (a.action === "create" && !p.name) throw new Error("create needs a name.");
+        const saved = await call("/api/playlists", { method: "POST", json: { action: "save", playlist: p } });
+        return ok(`Saved playlist "${saved.name}" [${saved.id}].`, saved);
+      }
+      if (a.action === "play") {
+        const key = a.id ?? "all";
+        let id = "";
+        if (key.toLowerCase() !== "all" && key !== "") {
+          const p = find(key);
+          if (!p) throw new Error(`No playlist "${key}".`);
+          id = p.id;
+        }
+        await call("/api/playlists", { method: "POST", json: { action: "play", id } });
+        return ok(id ? `Playing playlist "${find(id).name}".` : "Playing all photos.");
+      }
+      // delete
+      const p = find(a.id);
+      if (!p) throw new Error(`No playlist "${a.id}".`);
+      await call("/api/playlists", { method: "POST", json: { action: "delete", id: p.id } });
+      return ok(`Deleted playlist "${p.name}".`);
     },
   );
 

@@ -34,6 +34,12 @@ class SettingsActivity : Activity() {
             gravity = Gravity.CENTER
         })
 
+        val pls = Playlists.get(this)
+        cycle(tr("Плейлист", "Playlist"), listOf("") + pls.all().map { it.id }, { prefs.activePlaylist }, { prefs.activePlaylist = it; prefs.playlistMode = "manual" }) { id ->
+            if (id.isEmpty()) tr("все фото", "all photos") else pls.find(id)?.name ?: id
+        }
+        toggle(tr("Плейлисты по расписанию", "Playlists by schedule"), { prefs.playlistMode == "schedule" }, { prefs.playlistMode = if (it) "schedule" else "manual" })
+
         val intervals = listOf(5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600)
         cycle(tr("Смена фото", "Change photo every"), intervals, { prefs.intervalSec }, { prefs.intervalSec = it }) { sec ->
             when {

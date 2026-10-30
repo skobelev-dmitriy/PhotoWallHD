@@ -47,6 +47,17 @@
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .muted { color: var(--dim); font-size: 14px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .chip2 { background: var(--line); color: var(--text); border: 0; border-radius: 99px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  .chip2.on { background: var(--accent); }
+  .chip2.add { background: transparent; border: 1px dashed var(--dim); color: var(--dim); }
+  .pl { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
+  .pl .t { font-weight: 600; } .pl .s { color: var(--dim); font-size: 13px; }
+  .badge { background: #1f4a35; color: #8be0b0; border-radius: 99px; padding: 1px 9px; font-size: 12px; margin-left: 6px; font-weight: 400; }
+  .editor { border: 1px solid var(--accent); border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0; }
+  .checks label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+  .toolbar select { max-width: 220px; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #000c; padding: 8px 16px; border-radius: 99px; opacity: 0; transition: .25s; pointer-events: none; }
   #toast.show { opacity: 1; }
 </style>
@@ -115,25 +126,57 @@
   </div>
 
   <div class="card">
-    <h2 data-t="upload">Загрузить фото</h2>
+    <div class="row" style="justify-content: space-between">
+      <h2 style="margin:0"><span data-t="photos">Фотографии</span> <span id="count"></span></h2>
+      <div class="muted" id="space"></div>
+    </div>
+    <div class="chips" id="folderBar"></div>
+    <div class="row" id="folderTools" hidden>
+      <button class="ghost" onclick="renameFolder()" data-t="renameFolder">Переименовать папку</button>
+      <button class="ghost" onclick="playlistFromFolder()" data-t="plFromFolder">▶ Плейлист из этой папки</button>
+      <button class="danger" onclick="deleteFolder()" data-t="deleteFolder">Удалить папку</button>
+    </div>
+
+    <h2 style="margin-top:16px"><span data-t="upload">Загрузить фото</span> → <span id="upTarget"></span></h2>
     <div class="drop" id="drop">
-      <div>📷 <b data-t="dropHint">Перетащите фото сюда или нажмите, чтобы выбрать</b></div>
+      <div>📷 <b data-t="dropHint">Перетащите фото или целую папку сюда, либо нажмите, чтобы выбрать фото</b></div>
       <div class="muted" data-t="dropSub">JPG, PNG, WebP — до 4K и больше, оригиналы сжимать не нужно</div>
     </div>
     <input id="file" type="file" accept="image/*" multiple hidden>
+    <input id="dirInput" type="file" webkitdirectory multiple hidden>
+    <div class="row"><button class="ghost" onclick="$('#dirInput').click()" data-t="pickFolder">📁 Загрузить папку целиком</button></div>
     <div id="queue"></div>
+
+    <div class="row toolbar" style="margin-top:16px">
+      <button class="ghost" id="selAll" onclick="selectAll()" data-t="selectAll">Выбрать все</button>
+      <select id="moveSel"></select>
+      <select id="plSel"></select>
+      <button class="danger" id="delBtn" onclick="deleteSelected()" disabled data-t="delete">Удалить</button>
+    </div>
+    <div class="grid" id="grid"></div>
   </div>
 
   <div class="card">
-    <div class="row" style="justify-content: space-between">
-      <h2 style="margin:0"><span data-t="photos">Фотографии</span> <span id="count"></span></h2>
+    <h2 data-t="playlists">Плейлисты</h2>
+    <div class="muted" data-t="plHint">Плейлист — набор папок и отдельных фото. «Играть» запускает его сразу; с галочкой ниже плейлисты сами включаются в свои часы (например, утренний и вечерний).</div>
+    <label class="f inline" style="margin-top:10px"><input type="checkbox" id="plSched"><span data-t="bySchedule">Переключать плейлисты по расписанию</span></label>
+    <div id="plList"></div>
+    <div class="row"><button class="ghost" onclick="editPlaylist(null)" data-t="newPlaylist">+ Новый плейлист</button></div>
+    <div class="editor" id="plEditor" hidden>
+      <label class="f"><span data-t="plName">Название</span><input type="text" id="plName" maxlength="60"></label>
+      <div class="muted" style="margin-top:10px" data-t="plFolders">Папки в плейлисте</div>
+      <div class="checks" id="plFolders"></div>
+      <div class="muted" id="plPhotosInfo"></div>
+      <label class="f inline" style="margin-top:10px"><input type="checkbox" id="plSchedOn"><span data-t="plSchedule">Играть в определённые часы</span></label>
       <div class="row">
-        <button class="ghost" id="selAll" onclick="selectAll()" data-t="selectAll">Выбрать все</button>
-        <button class="danger" id="delBtn" onclick="deleteSelected()" disabled data-t="delete">Удалить</button>
+        <label class="f" style="flex:0 0 140px"><span data-t="plFrom">С</span><input type="time" id="plFrom"></label>
+        <label class="f" style="flex:0 0 140px"><span data-t="plTo">До</span><input type="time" id="plTo"></label>
+      </div>
+      <div class="row">
+        <button onclick="savePlaylist()" data-t="save">Сохранить</button>
+        <button class="ghost" onclick="$('#plEditor').hidden = true" data-t="cancel">Отмена</button>
       </div>
     </div>
-    <div class="muted" id="space"></div>
-    <div class="grid" id="grid"></div>
   </div>
 
   <div class="card">
@@ -196,8 +239,15 @@ const $ = s => document.querySelector(s);
 const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 const T = {
   en: {
+    allPhotos: 'All photos', noFolder: 'No folder', newFolder: 'Folder', renameFolder: 'Rename folder', deleteFolder: 'Delete folder',
+    plFromFolder: '▶ Playlist from this folder', pickFolder: '📁 Upload a whole folder', moveTo: 'Move to…', toPlaylist: 'Add to playlist…', newFolderEllipsis: 'New folder…', newPlaylistEllipsis: 'New playlist…',
+    playlists: 'Playlists', plHint: 'A playlist is a set of folders and single photos. "Play" starts it now; with the box below, playlists switch on by themselves in their hours (e.g. a morning and an evening one).',
+    bySchedule: 'Switch playlists by schedule', newPlaylist: '+ New playlist', plName: 'Name', plFolders: 'Folders in the playlist', plSchedule: 'Play at certain hours', plFrom: 'From', plTo: 'To',
+    save: 'Save', cancel: 'Cancel', play: '▶ Play', edit: 'Edit', nowPlaying: 'playing', onDemand: 'on demand', singlePhotos: 'single photos', photosWord: 'photos', clearSingles: 'Remove single photos',
+    uploadTo: 'to', folderPrompt: 'Folder name', playlistPrompt: 'Playlist name', delFolderAll: 'Delete the folder together with its photos?', delFolderKeep: 'Delete only the folder and keep the photos (they move out of the folder)?', plDelete: 'Delete this playlist?', allPhotosRow: 'All photos (no playlist)',
+    dropHint: 'Drop photos or a whole folder here, or tap to pick photos',
     show: 'Slideshow', startShow: 'Start slideshow on the projector', upload: 'Upload photos',
-    dropHint: 'Drop photos here or tap to choose', dropSub: 'JPG, PNG, WebP — 4K and bigger, no need to shrink originals',
+    dropSub: 'JPG, PNG, WebP — 4K and bigger, no need to shrink originals',
     photos: 'Photos', selectAll: 'Select all', clearSel: 'Clear', delete: 'Delete', settings: 'Settings',
     interval: 'Change photo every', transition: 'Transition', trFade: 'crossfade', trSlide: 'slide', trNone: 'none',
     fit: 'Scaling', fitFit: 'fit whole picture', fitFill: 'fill screen (crop)', fitAuto: 'auto', dim: 'Dimming',
@@ -216,6 +266,12 @@ const T = {
     s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
   },
   ru: {
+    allPhotos: 'Все фото', noFolder: 'Без папки', newFolder: 'Папка', renameFolder: 'Переименовать папку', deleteFolder: 'Удалить папку',
+    plFromFolder: '▶ Плейлист из этой папки', pickFolder: '📁 Загрузить папку целиком', moveTo: 'Переместить в…', toPlaylist: 'Добавить в плейлист…', newFolderEllipsis: 'Новая папка…', newPlaylistEllipsis: 'Новый плейлист…',
+    playlists: 'Плейлисты', plHint: 'Плейлист — набор папок и отдельных фото.', bySchedule: 'Переключать плейлисты по расписанию', newPlaylist: '+ Новый плейлист', plName: 'Название', plFolders: 'Папки в плейлисте', plSchedule: 'Играть в определённые часы', plFrom: 'С', plTo: 'До',
+    save: 'Сохранить', cancel: 'Отмена', play: '▶ Играть', edit: 'Изменить', nowPlaying: 'играет', onDemand: 'по запросу', singlePhotos: 'отдельных фото', photosWord: 'фото', clearSingles: 'Убрать отдельные фото',
+    uploadTo: 'в', folderPrompt: 'Название папки', playlistPrompt: 'Название плейлиста', delFolderAll: 'Удалить папку вместе с фотографиями?', delFolderKeep: 'Удалить только папку, а фото оставить (они переедут в «Без папки»)?', plDelete: 'Удалить этот плейлист?', allPhotosRow: 'Все фото (без плейлиста)',
+    dropHint: 'Перетащите фото или целую папку сюда, либо нажмите, чтобы выбрать фото',
     s: 'с', min: 'мин', h: 'ч',
     now: 'Сейчас на экране', nowIdle: 'Ничего не показывается (главный экран или другое приложение)', nowNight: 'Ночное расписание: чёрный экран', nowPaused: 'пауза', nowDisco: 'Дискотека',
     running: 'показ идёт', idle: 'показ не запущен', saved: 'Сохранено', pinSet: 'PIN сохранён', pinCleared: 'PIN удалён',
@@ -263,11 +319,11 @@ const pad = n => String(n).padStart(2, '0');
 async function load(quiet) {
   const r = await api('/api/state');
   const next = await r.json();
-  const sig = x => x.photos.map(p => p.name + p.modified).join('|');
+  const sig = x => x.photos.map(p => p.name + p.modified).join('|') + JSON.stringify(x.playlists) + JSON.stringify(x.folders) + x.effectivePlaylist;
   const changed = !state || sig(state) !== sig(next);
   state = next;
   renderStatus();
-  if (!quiet || changed) renderGrid();
+  if (!quiet || changed) { renderGrid(); renderPlaylists(); }
   if (!quiet) renderSettings();
 }
 
@@ -277,14 +333,43 @@ function renderStatus() {
   chip.classList.toggle('on', state.active);
 }
 
+// ---- folders, grid, selection ----
+let curFolder = '*';   // '*' = all photos, '' = photos outside folders, otherwise a folder name
+const isImg = f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name);
+const uploadFolder = () => (curFolder === '*' ? '' : curFolder);
+const visiblePhotos = () => state.photos.filter(p => curFolder === '*' || p.folder === curFolder);
+const folderLabel = f => (f === '*' ? t('allPhotos') : f === '' ? t('noFolder') : f);
+
+function renderFolders() {
+  if (curFolder !== '*' && curFolder !== '' && !state.folders.some(f => f.name === curFolder)) curFolder = '*';
+  const bar = $('#folderBar'); bar.innerHTML = '';
+  const chip = (key, label, count) => {
+    const b = document.createElement('button');
+    b.className = 'chip2' + (curFolder === key ? ' on' : '');
+    b.textContent = label + (count != null ? ' (' + count + ')' : '');
+    b.onclick = () => { curFolder = key; selected.clear(); renderFolders(); renderGrid(); };
+    bar.appendChild(b);
+  };
+  chip('*', t('allPhotos'), state.photos.length);
+  chip('', t('noFolder'), state.rootCount);
+  state.folders.forEach(f => chip(f.name, f.name, f.count));
+  const add = document.createElement('button');
+  add.className = 'chip2 add'; add.textContent = '+ ' + t('newFolder'); add.onclick = newFolder;
+  bar.appendChild(add);
+  $('#folderTools').hidden = curFolder === '*' || curFolder === '';
+  $('#upTarget').textContent = folderLabel(curFolder === '*' ? '' : curFolder);
+}
+
 function renderGrid() {
+  renderFolders();
   const grid = $('#grid');
   const names = new Set(state.photos.map(p => p.name));
   for (const n of [...selected]) if (!names.has(n)) selected.delete(n);
   grid.innerHTML = '';
-  if (!state.photos.length) { grid.innerHTML = '<div class="muted">' + t('noPhotos') + '</div>'; }
+  const list = visiblePhotos();
+  if (!list.length) { grid.innerHTML = '<div class="muted">' + t('noPhotos') + '</div>'; }
   // newest first
-  for (const p of [...state.photos].reverse()) {
+  for (const p of [...list].reverse()) {
     const tile = document.createElement('div');
     tile.className = 'tile' + (selected.has(p.name) ? ' sel' : '');
     const url = encodeURIComponent(p.name);
@@ -301,19 +386,141 @@ function renderGrid() {
   updateSel();
 }
 
+function fillSelect(sel, placeholder, options) {
+  sel.innerHTML = '';
+  const add = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; sel.appendChild(o); };
+  add('', placeholder);
+  options.forEach(([v, l]) => add(v, l));
+  sel.value = '';
+}
+
 function updateSel() {
   $('#delBtn').disabled = selected.size === 0;
   $('#delBtn').textContent = selected.size ? t('delete') + ' (' + selected.size + ')' : t('delete');
   $('#selAll').textContent = selected.size ? t('clearSel') : t('selectAll');
+  const has = selected.size > 0;
+  const move = $('#moveSel'), pl = $('#plSel');
+  move.disabled = pl.disabled = !has;
+  fillSelect(move, t('moveTo'), [['__root', t('noFolder')], ...state.folders.map(f => ['f:' + f.name, f.name]), ['__new', t('newFolderEllipsis')]]);
+  fillSelect(pl, t('toPlaylist'), [...state.playlists.map(p => ['p:' + p.id, p.name]), ['__new', t('newPlaylistEllipsis')]]);
 }
 function selectAll() {
-  if (selected.size) selected.clear(); else state.photos.forEach(p => selected.add(p.name));
+  if (selected.size) selected.clear(); else visiblePhotos().forEach(p => selected.add(p.name));
   renderGrid();
 }
 async function deleteSelected() {
   if (!selected.size || !confirm(t('confirmDel') + selected.size + '?')) return;
   await post('/api/delete', { names: [...selected] });
   selected.clear(); await load();
+}
+
+$('#moveSel').onchange = async e => {
+  const v = e.target.value; if (!v || !selected.size) return;
+  let folder = '';
+  if (v === '__new') { const n = prompt(t('folderPrompt')); if (!n) return updateSel(); folder = n; }
+  else if (v.startsWith('f:')) folder = v.slice(2);
+  await post('/api/move', { names: [...selected], folder });
+  selected.clear(); await load();
+};
+$('#plSel').onchange = async e => {
+  const v = e.target.value; if (!v || !selected.size) return;
+  let pl;
+  if (v === '__new') {
+    const n = prompt(t('playlistPrompt')); if (!n) return updateSel();
+    pl = { id: '', name: n, folders: [], photos: [], scheduleEnabled: false, from: 480, to: 720 };
+  } else pl = JSON.parse(JSON.stringify(state.playlists.find(p => 'p:' + p.id === v)));
+  pl.photos = [...new Set([...pl.photos, ...selected])];
+  await post('/api/playlists', { action: 'save', playlist: pl });
+  toast(t('saved')); selected.clear(); await load();
+};
+
+async function newFolder() {
+  const n = prompt(t('folderPrompt')); if (!n) return;
+  await post('/api/folders', { action: 'create', name: n });
+  await load();
+  const made = state.folders.find(f => f.name.toLowerCase() === n.trim().toLowerCase());
+  if (made) { curFolder = made.name; renderGrid(); }
+}
+async function renameFolder() {
+  const n = prompt(t('folderPrompt'), curFolder); if (!n || n === curFolder) return;
+  const r = await post('/api/folders', { action: 'rename', name: curFolder, to: n });
+  if (r.ok) curFolder = n; else toast((await r.json()).error || t('failed'));
+  await load();
+}
+async function deleteFolder() {
+  let keep = false;
+  if (!confirm(t('delFolderAll'))) { if (!confirm(t('delFolderKeep'))) return; keep = true; }
+  await post('/api/folders', { action: 'delete', name: curFolder, deletePhotos: !keep });
+  curFolder = '*'; await load();
+}
+async function playlistFromFolder() {
+  await post('/api/playlists', { action: 'save', playlist: { id: '', name: curFolder, folders: [curFolder], photos: [], scheduleEnabled: false, from: 480, to: 720 } });
+  toast(t('saved')); await load();
+}
+
+// ---- playlists ----
+let editing = null;
+const hhmm = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+const toMin = v => { const [h, m] = v.split(':').map(Number); return isNaN(h) ? 0 : h * 60 + m; };
+
+function renderPlaylists() {
+  const box = $('#plList'); box.innerHTML = '';
+  const row = (id, title, sub, p) => {
+    const el = document.createElement('div'); el.className = 'pl';
+    const info = document.createElement('div');
+    info.innerHTML = '<div class="t"></div><div class="s"></div>';
+    info.querySelector('.t').textContent = title;
+    if (state.effectivePlaylist === id) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = t('nowPlaying'); info.querySelector('.t').appendChild(b); }
+    info.querySelector('.s').textContent = sub;
+    const btns = document.createElement('div'); btns.className = 'row'; btns.style.margin = 0;
+    const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; btns.appendChild(b); };
+    mk(t('play'), '', async () => { await post('/api/playlists', { action: 'play', id }); toast(t('started')); setTimeout(load, 800); });
+    if (p) {
+      mk(t('edit'), 'ghost', () => editPlaylist(p));
+      mk('🗑', 'danger', async () => { if (!confirm(t('plDelete'))) return; await post('/api/playlists', { action: 'delete', id }); await load(); });
+    }
+    el.appendChild(info); el.appendChild(btns); box.appendChild(el);
+  };
+  row('', t('allPhotosRow'), state.photos.length + ' ' + t('photosWord'), null);
+  state.playlists.forEach(p => {
+    const parts = [p.count + ' ' + t('photosWord')];
+    if (p.folders.length) parts.push(p.folders.map(f => f || t('noFolder')).join(', '));
+    if (p.photos.length) parts.push('+' + p.photos.length + ' ' + t('singlePhotos'));
+    parts.push(p.scheduleEnabled ? hhmm(p.from) + '–' + hhmm(p.to) : t('onDemand'));
+    row(p.id, p.name, parts.join(' · '), p);
+  });
+  $('#plSched').checked = state.settings.playlistMode === 'schedule';
+}
+$('#plSched').onchange = async e => { await post('/api/settings', { playlistMode: e.target.checked ? 'schedule' : 'manual' }); toast(t('saved')); };
+
+function editPlaylist(p) {
+  editing = p ? JSON.parse(JSON.stringify(p)) : { id: '', name: '', folders: [], photos: [], scheduleEnabled: false, from: 480, to: 720 };
+  $('#plName').value = editing.name;
+  const box = $('#plFolders'); box.innerHTML = '';
+  [['', t('noFolder')], ...state.folders.map(f => [f.name, f.name])].forEach(([val, label]) => {
+    const l = document.createElement('label'); const c = document.createElement('input');
+    c.type = 'checkbox'; c.value = val; c.checked = editing.folders.includes(val);
+    l.appendChild(c); l.appendChild(document.createTextNode(label)); box.appendChild(l);
+  });
+  const info = $('#plPhotosInfo'); info.textContent = '';
+  if (editing.photos.length) {
+    info.textContent = '+' + editing.photos.length + ' ' + t('singlePhotos') + ' ';
+    const b = document.createElement('a'); b.href = '#'; b.style.color = 'var(--accent)'; b.textContent = t('clearSingles');
+    b.onclick = ev => { ev.preventDefault(); editing.photos = []; info.textContent = ''; };
+    info.appendChild(b);
+  }
+  $('#plSchedOn').checked = editing.scheduleEnabled;
+  $('#plFrom').value = hhmm(editing.from); $('#plTo').value = hhmm(editing.to);
+  $('#plEditor').hidden = false;
+  $('#plEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+async function savePlaylist() {
+  editing.name = $('#plName').value.trim() || t('playlists');
+  editing.folders = [...document.querySelectorAll('#plFolders input:checked')].map(c => c.value);
+  editing.scheduleEnabled = $('#plSchedOn').checked;
+  editing.from = toMin($('#plFrom').value); editing.to = toMin($('#plTo').value);
+  await post('/api/playlists', { action: 'save', playlist: editing });
+  $('#plEditor').hidden = true; toast(t('saved')); await load();
 }
 
 // ---- settings ----
@@ -358,20 +565,48 @@ async function ctl(action) {
   setTimeout(load, 1500);
 }
 
-// ---- upload ----
-const drop = $('#drop'), fileInput = $('#file');
+// ---- upload (files, or a whole folder; each item remembers its target folder) ----
+const drop = $('#drop'), fileInput = $('#file'), dirInput = $('#dirInput');
 drop.onclick = () => fileInput.click();
-fileInput.onchange = () => { uploadAll([...fileInput.files]); fileInput.value = ''; };
+fileInput.onchange = () => { uploadAll([...fileInput.files].map(file => ({ file, folder: uploadFolder() }))); fileInput.value = ''; };
+dirInput.onchange = () => {
+  const items = [...dirInput.files].filter(isImg).map(file => ({ file, folder: (file.webkitRelativePath || '').split('/')[0] || uploadFolder() }));
+  dirInput.value = ''; uploadAll(items);
+};
 ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', e => uploadAll([...e.dataTransfer.files].filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name))));
+drop.addEventListener('drop', e => collectDropped(e.dataTransfer).then(uploadAll));
 
-function uploadOne(file, row) {
+// Reads dropped files and folders. The first lines run synchronously, before the browser invalidates the drop data.
+async function collectDropped(dt) {
+  const entries = [...(dt.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const plain = [...dt.files];
+  if (!entries.length) return plain.filter(isImg).map(file => ({ file, folder: uploadFolder() }));
+  const out = [];
+  const walk = async (entry, top) => {
+    if (entry.isFile) {
+      const file = await new Promise(r => entry.file(r));
+      if (isImg(file)) out.push({ file, folder: top === null ? uploadFolder() : top });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise(r => reader.readEntries(r));
+        for (const child of batch) await walk(child, top === null ? entry.name : top);
+      } while (batch.length);
+    }
+  };
+  for (const e of entries) await walk(e, null);
+  return out;
+}
+
+function uploadOne(item, row) {
   return new Promise(resolve => {
     const x = new XMLHttpRequest();
     x.open('POST', '/api/upload');
     x.setRequestHeader('X-Pin', PIN);
-    x.setRequestHeader('X-Filename', encodeURIComponent(file.name));
+    x.setRequestHeader('X-Filename', encodeURIComponent(item.file.name));
+    if (item.folder) x.setRequestHeader('X-Folder', encodeURIComponent(item.folder));
     x.upload.onprogress = e => { if (e.lengthComputable) row.bar.style.width = (e.loaded / e.total * 100) + '%'; };
     x.onload = () => {
       if (x.status === 200) { row.el.classList.add('ok'); row.msg.textContent = '✓'; row.bar.style.width = '100%'; }
@@ -382,25 +617,27 @@ function uploadOne(file, row) {
       resolve();
     };
     x.onerror = () => { row.el.classList.add('err'); row.msg.textContent = t('failed'); resolve(); };
-    x.send(file);
+    x.send(item.file);
   });
 }
 
-async function uploadAll(files) {
-  if (!files.length) return;
+async function uploadAll(items) {
+  if (!items.length) return;
   const q = $('#queue');
-  const rows = files.map(f => {
+  const rows = items.map(it => {
     const el = document.createElement('div'); el.className = 'q';
     el.innerHTML = '<div class="bar"></div><span></span><span></span>';
     const [bar, name, msg] = el.children;
-    name.textContent = f.name + ' · ' + fmtBytes(f.size);
+    name.textContent = (it.folder ? it.folder + ' / ' : '') + it.file.name + ' · ' + fmtBytes(it.file.size);
     q.appendChild(el);
-    return { el, bar, msg, file: f };
+    return { el, bar, msg, item: it };
   });
   let i = 0;
-  const worker = async () => { while (i < rows.length) { const r = rows[i++]; await uploadOne(r.file, r); } };
+  const worker = async () => { while (i < rows.length) { const r = rows[i++]; await uploadOne(r.item, r); } };
   await Promise.all([worker(), worker()]);
+  const folders = [...new Set(items.map(it => it.folder))];
   await load();
+  if (folders.length === 1 && folders[0]) { curFolder = folders[0]; renderGrid(); }
   setTimeout(() => rows.forEach(r => r.el.classList.contains('ok') && r.el.remove()), 4000);
 }
 

@@ -5,7 +5,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import assert from "node:assert/strict";
 
 const log = [];
-const state = { photos: [], settings: { discoVisual: "auto", discoSource: "mic", discoSens: 100 }, mode: "idle", url: "http://fake:8080", totalBytes: 0, freeBytes: 5e9 };
+const state = { photos: [], folders: [], rootCount: 0, playlists: [], effectivePlaylist: "", settings: { discoVisual: "auto", discoSource: "mic", discoSens: 100 }, mode: "idle", url: "http://fake:8080", totalBytes: 0, freeBytes: 5e9 };
 const fake = createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
@@ -23,6 +23,14 @@ const fake = createServer((req, res) => {
     }
     if (req.url === "/api/settings") { Object.assign(state.settings, JSON.parse(body.toString())); return send(state.settings); }
     if (req.url === "/api/upload") { state.photos.push({ name: decodeURIComponent(req.headers["x-filename"]), size: body.length, modified: Date.now() }); return send({ name: decodeURIComponent(req.headers["x-filename"]), size: body.length }); }
+    if (req.url === "/api/playlists") {
+      const j = JSON.parse(body.toString());
+      if (j.action === "save") { const p = { ...j.playlist, id: j.playlist.id || "p" + (state.playlists.length + 1), count: 0 }; state.playlists = [...state.playlists.filter((x) => x.id !== p.id), p]; return send(p); }
+      if (j.action === "play") { state.effectivePlaylist = j.id; return send({ ok: true }); }
+      if (j.action === "delete") { state.playlists = state.playlists.filter((x) => x.id !== j.id); return send({ ok: true }); }
+    }
+    if (req.url === "/api/folders") return send({ ok: true });
+    if (req.url === "/api/move") return send({ moved: JSON.parse(body.toString()).names.length });
     if (req.url === "/api/delete") return send({ deleted: JSON.parse(body.toString()).names.length });
     send({ error: "nope" }, 404);
   });
@@ -34,7 +42,7 @@ const client = new Client({ name: "smoke", version: "1" });
 await client.connect(new StdioClientTransport({ command: "node", args: ["server.js"], env: { ...process.env, PHOTOWALL_URL: url, PHOTOWALL_PIN: "1234" } }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-assert.deepEqual(tools, ["add_photo", "delete_photos", "disco", "list_photos", "projector_status", "see_screen", "slideshow", "update_settings"]);
+assert.deepEqual(tools, ["add_photo", "delete_photos", "disco", "folders", "list_photos", "playlists", "projector_status", "see_screen", "slideshow", "update_settings"]);
 
 let r = await client.callTool({ name: "disco", arguments: { action: "start", effect: "lamps", source: "demo" } });
 assert.match(r.content[0].text, /disco mode/);
@@ -66,6 +74,21 @@ assert.equal(r.isError, true);
 
 r = await client.callTool({ name: "delete_photos", arguments: { names: ["моне.jpg"] } });
 assert.match(r.content[0].text, /Deleted 1/);
+
+// playlists: create with a time window, play it by name, list it
+r = await client.callTool({ name: "playlists", arguments: { action: "create", name: "Morning", folders: ["Sea"], from: "07:00", to: "12:30" } });
+assert.match(r.content[0].text, /Saved playlist "Morning"/);
+const saved = state.playlists[0];
+assert.equal(saved.from, 420); assert.equal(saved.to, 750); assert.equal(saved.scheduleEnabled, true);
+r = await client.callTool({ name: "playlists", arguments: { action: "play", id: "morning" } });
+assert.match(r.content[0].text, /Playing playlist "Morning"/);
+assert.equal(state.effectivePlaylist, saved.id);
+r = await client.callTool({ name: "playlists", arguments: { action: "list" } });
+assert.match(r.content[0].text, /07:00–12:30/);
+r = await client.callTool({ name: "playlists", arguments: { action: "create", name: "Bad", from: "25:99" } });
+assert.equal(r.isError, true);
+r = await client.callTool({ name: "folders", arguments: { action: "move", names: ["a.jpg"], folder: "Sea" } });
+assert.match(r.content[0].text, /Moved 1/);
 
 fake.close(); img.close(); await client.close();
 console.log("MCP smoke test passed");
