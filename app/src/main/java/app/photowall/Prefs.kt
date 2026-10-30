@@ -33,6 +33,13 @@ class Prefs(context: Context) {
 
     var pin by strPref("pin", "", null)
 
+    // disco mode
+    var discoSource by strPref("discoSource", "mic", setOf("mic", "output", "demo"))
+    var discoVisual by strPref("discoVisual", "auto", setOf("auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"))
+    var discoAutoSec by intPref("discoAutoSec", 20, 5, 600)
+    var discoSens by intPref("discoSens", 100, 40, 400)
+    var discoFlash by boolPref("discoFlash", true)
+
     /** False while the schedule says "night": the screen stays black. */
     fun inActiveWindow(): Boolean {
         if (!scheduleEnabled) return true
@@ -64,6 +71,11 @@ class Prefs(context: Context) {
         put("offMinutes", offMinutes)
         put("autostart", autostart)
         put("hasPin", pin.isNotEmpty())
+        put("discoSource", discoSource)
+        put("discoVisual", discoVisual)
+        put("discoAutoSec", discoAutoSec)
+        put("discoSens", discoSens)
+        put("discoFlash", discoFlash)
     }
 
     fun update(j: JSONObject) {
@@ -82,6 +94,11 @@ class Prefs(context: Context) {
         if (j.has("onMinutes")) onMinutes = j.optInt("onMinutes", onMinutes)
         if (j.has("offMinutes")) offMinutes = j.optInt("offMinutes", offMinutes)
         if (j.has("autostart")) autostart = j.optBoolean("autostart", autostart)
+        if (j.has("discoSource")) discoSource = j.optString("discoSource", discoSource)
+        if (j.has("discoVisual")) discoVisual = j.optString("discoVisual", discoVisual)
+        if (j.has("discoAutoSec")) discoAutoSec = j.optInt("discoAutoSec", discoAutoSec)
+        if (j.has("discoSens")) discoSens = j.optInt("discoSens", discoSens)
+        if (j.has("discoFlash")) discoFlash = j.optBoolean("discoFlash", discoFlash)
         if (j.has("pin")) pin = j.optString("pin", "").trim().take(32)
     }
 

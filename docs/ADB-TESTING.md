@@ -24,6 +24,7 @@ adb devices          # проектор должен быть в статусе 
 adb install -r PhotoWallHD.apk        # или собрать: ./gradlew assembleDebug
 adb shell am start -n app.photowall/.MainActivity
 adb shell appops set app.photowall SYSTEM_ALERT_WINDOW allow     # запуск показа из фона
+adb shell pm grant app.photowall android.permission.RECORD_AUDIO  # звук для дискотеки
 ```
 
 ## 4. Логи
@@ -44,6 +45,8 @@ adb logcat --pid=$(adb shell pidof app.photowall)
 - [ ] Расписание: вне окна экран чёрный, в начале окна показ возвращается.
 - [ ] После перезагрузки проектора сервер доступен, показ запускается (если включён автозапуск).
 - [ ] Показ работает несколько часов подряд без роста потребления памяти (`adb shell dumpsys meminfo app.photowall`).
+- [ ] Дискотека: на главном экране кнопка «Дискотека»; в режиме «демо» эффекты идут; в режиме «микрофон» реагируют на музыку
+      (если нет, выясните, есть ли в проекторе микрофон: см. [DISCO.md](DISCO.md)); 4K без подтормаживаний (`adb shell dumpsys gfxinfo app.photowall`).
 - [ ] Заставка: Настройки → Заставка → PhotoWall HD (если прошивка поддерживает).
 
 Известные неизвестные (не проверялись на устройстве): поведение на прошивке Wanbo при загрузке, наличие экрана

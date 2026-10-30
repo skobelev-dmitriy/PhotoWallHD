@@ -35,12 +35,19 @@ object Remote {
     @Volatile
     var view: SlideshowView? = null
 
-    val active: Boolean get() = view != null
+    @Volatile
+    var disco: DiscoView? = null
+
+    val active: Boolean get() = view != null || disco != null
 
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun send(action: String) {
         main.post {
+            when (action) {
+                "dnext" -> disco?.step(1)
+                "dprev" -> disco?.step(-1)
+            }
             val v = view ?: return@post
             when (action) {
                 "next" -> v.next()

@@ -106,7 +106,8 @@ class WebApi(private val ctx: Context) {
     private fun control(req: Request): Response {
         when (val action = readJson(req).optString("action")) {
             "start" -> ServerService.launchSlideshow(ctx)
-            "next", "prev", "pause", "resume", "toggle" -> Remote.send(action)
+            "disco" -> ServerService.launchDisco(ctx)
+            "next", "prev", "pause", "resume", "toggle", "dnext", "dprev" -> Remote.send(action)
             else -> return Response.error(400, "unknown action")
         }
         return Response.json(JSONObject().put("ok", true))

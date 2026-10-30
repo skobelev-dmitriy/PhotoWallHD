@@ -104,8 +104,17 @@ class ServerService : Service() {
             }
         }
 
+        fun launchDisco(ctx: Context) {
+            if (Remote.disco != null) return
+            try {
+                ctx.startActivity(Intent(ctx, DiscoActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (e: Exception) {
+                // blocked by the system (needs the "display over other apps" permission)
+            }
+        }
+
         fun launchSlideshow(ctx: Context) {
-            if (Remote.active) return
+            if (Remote.view != null) return
             try {
                 ctx.startActivity(Intent(ctx, SlideshowActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (e: Exception) {

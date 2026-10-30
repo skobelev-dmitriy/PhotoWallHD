@@ -14,13 +14,15 @@
 | `POST /api/upload` | Тело — **сам файл**, заголовок `X-Filename: <имя, URL-кодированное>`. Ответ `{"name","size"}`. Ошибки: `400` пусто, `413` больше 300 МБ, `415` не изображение, `507` нет места. Если имя занято, добавляется ` (1)`. |
 | `POST /api/delete` | `{"names":["a.jpg","b.jpg"]}`: удалить фото. |
 | `POST /api/settings` | JSON с любыми полями из настроек, ответ — текущие настройки. Поле `pin` задаёт или снимает PIN (пустая строка). |
-| `POST /api/control` | `{"action":"next"\|"prev"\|"pause"\|"resume"\|"toggle"\|"start"}`. |
+| `POST /api/control` | `{"action":"next"\|"prev"\|"pause"\|"resume"\|"toggle"\|"start"\|"disco"\|"dnext"\|"dprev"}`. `disco` запускает режим дискотеки, `dnext`/`dprev` меняют эффект. |
 
 ## Настройки (`/api/settings`)
 
 `intervalSec` (3–86400), `transition` (`fade`/`slide`/`none`), `fit` (`fit`/`fill`/`auto`), `kenBurns`, `shuffle`,
 `clock`, `clockPos` (`tl`/`tr`/`bl`/`br`/`bc`), `clockSize` (`s`/`m`/`l`), `clock24`, `clockDate`, `dim` (0–80 %),
 `scheduleEnabled`, `onMinutes`, `offMinutes` (минуты от полуночи), `autostart`, `pin`.
+Режим дискотеки: `discoSource` (`mic`/`output`/`demo`), `discoVisual` (`auto`/`bars`/`circle`/`rings`/`wave`/`lamps`/`fireworks`/`warp`/`hills`),
+`discoAutoSec` (5–600), `discoSens` (40–400 %), `discoFlash`.
 
 ## Примеры
 

@@ -85,6 +85,19 @@ class SettingsActivity : Activity() {
         timeRow(tr("Выключать в", "Turn off at"), { prefs.offMinutes }, { prefs.offMinutes = it })
         toggle(tr("Автозапуск показа", "Auto-start slideshow"), { prefs.autostart }, { prefs.autostart = it })
 
+        cycle(tr("Дискотека: звук", "Disco: sound source"), listOf("mic", "output", "demo"), { prefs.discoSource }, { prefs.discoSource = it }) {
+            when (it) {
+                "mic" -> tr("микрофон", "microphone")
+                "output" -> tr("звук устройства", "device audio")
+                else -> tr("демо (без звука)", "demo (no audio)")
+            }
+        }
+        cycle(tr("Дискотека: эффект", "Disco: effect"), listOf("auto") + allVisuals().map { it.id }, { prefs.discoVisual }, { prefs.discoVisual = it }) { id ->
+            if (id == "auto") tr("авто (по кругу)", "auto (rotate)") else allVisuals().first { it.id == id }.title
+        }
+        cycle(tr("Дискотека: чувствительность", "Disco: sensitivity"), listOf(60, 80, 100, 130, 160, 200, 300), { prefs.discoSens }, { prefs.discoSens = it }) { "$it%" }
+        toggle(tr("Дискотека: вспышки на бит", "Disco: beat flashes"), { prefs.discoFlash }, { prefs.discoFlash = it })
+
         column.addView(Ui.button(this, tr("Назад", "Back")) { finish() })
 
         val maxW = min(resources.displayMetrics.widthPixels, Ui.dp(this, 620))
