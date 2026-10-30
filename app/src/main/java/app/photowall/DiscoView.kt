@@ -1,11 +1,13 @@
 package app.photowall
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.view.View
+import java.io.ByteArrayOutputStream
 import kotlin.math.min
 
 /** Full-screen canvas that draws the current visualization and switches between them. */
@@ -29,6 +31,28 @@ class DiscoView(context: Context, private val feed: AudioFeed, private val prefs
         color = Color.WHITE
         typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         setShadowLayer(8f, 0f, 2f, Color.BLACK)
+    }
+
+    val effectId: String get() = visuals[index].id
+    val effectTitle: String get() = visuals[index].title
+    val isAuto: Boolean get() = auto
+
+    /**
+     * A small JPEG of the current effect for the web preview. Must run on the UI thread. It draws the effect
+     * with dt = 0, so it never advances the animation the projector is showing.
+     */
+    fun snapshotJpeg(w: Int): ByteArray? {
+        if (width <= 0 || height <= 0) return null
+        val h = (w * height.toFloat() / width).toInt().coerceAtLeast(1)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        return try {
+            visuals[index].draw(Canvas(bmp), w.toFloat(), h.toFloat(), feed, t, 0f)
+            val out = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            out.toByteArray()
+        } finally {
+            bmp.recycle()
+        }
     }
 
     fun resume() {
@@ -119,6 +143,10 @@ class DiscoView(context: Context, private val feed: AudioFeed, private val prefs
         val note = feed.note
         val msg = when {
             note != null -> note
+            feed.activeSource == "remote" && feed.silentSec > 8f -> tr(
+                "Из браузера идёт тишина: выберите вкладку с музыкой и отметьте «Поделиться звуком».",
+                "The browser is sending silence: pick the tab with the music and tick \"Share audio\"."
+            )
             feed.activeSource != "demo" && feed.silentSec > 8f -> tr(
                 "Звука не слышно (источник: ${if (feed.activeSource == "mic") "микрофон" else "системный звук"}). Сделайте музыку громче или выберите «Демо» в настройках.",
                 "No sound detected. Turn the music up or pick \"Demo\" in the settings."

@@ -70,12 +70,12 @@ class PhotoStore private constructor(context: Context) {
         return ok
     }
 
-    fun thumb(photo: Photo): File? {
-        val f = File(thumbDir, "${photo.name.hashCode()}_${photo.modified}_${photo.size}.jpg")
+    fun thumb(photo: Photo, side: Int = 480): File? {
+        val f = File(thumbDir, "${photo.name.hashCode()}_${photo.modified}_${photo.size}_$side.jpg")
         if (f.exists()) return f
         synchronized(thumbLock) {
             if (f.exists()) return f
-            val bmp = BitmapLoader.thumbnail(photo.file, 480) ?: return null
+            val bmp = BitmapLoader.thumbnail(photo.file, side) ?: return null
             val tmp = File(thumbDir, f.name + ".tmp")
             try {
                 FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }

@@ -40,10 +40,12 @@ class DiscoActivity : Activity() {
         startFeed()
         view.resume()
         Remote.disco = view
+        Remote.feed = feed
     }
 
     override fun onPause() {
         Remote.disco = null
+        Remote.feed = null
         view.pause()
         feed.stop()
         super.onPause()
@@ -53,7 +55,7 @@ class DiscoActivity : Activity() {
 
     private fun startFeed() {
         val src = prefs.discoSource
-        if (src != "demo" && !hasMic() && !asked) {
+        if ((src == "mic" || src == "output") && !hasMic() && !asked) {
             asked = true
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhotoWall HD · звук для дискотеки</title>
+<style>
+  :root { --bg:#12151d; --card:#1b2030; --line:#2c3347; --text:#e8ebf3; --dim:#8f98b0; --accent:#5b92ff; --ok:#4fbf7f; --err:#e36464; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 8px 0 12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  ol { margin: 8px 0 0; padding-left: 22px; color: var(--dim); }
+  ol b { color: var(--text); }
+  button { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:12px 18px; font:inherit; cursor:pointer; }
+  button.ghost { background:var(--line); color:var(--text); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:14px; color:var(--dim); flex:1; min-width:200px; }
+  input { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font:inherit; }
+  canvas { width:100%; height:110px; background:#0c0e14; border-radius:10px; display:block; margin-top:12px; }
+  #status { margin-top:10px; font-size:15px; }
+  #status.ok { color:var(--ok); } #status.err { color:var(--err); }
+  .muted { color:var(--dim); font-size:14px; }
+  code { background:#0c0e14; padding:1px 6px; border-radius:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎧 <span data-t="title">Звук для дискотеки</span></h1>
+
+  <div class="card">
+    <ol>
+      <li data-t="s1">Откройте в этом же браузере другую вкладку с музыкой (например, YouTube) и запустите её.</li>
+      <li data-t="s2">Нажмите <b>«Начать передачу звука»</b> и выберите <b>вкладку с музыкой</b>.</li>
+      <li data-t="s3">Обязательно отметьте <b>«Поделиться звуком вкладки»</b> (или «системным звуком» при выборе экрана в Windows).</li>
+      <li data-t="s4">Нажмите <b>«Включить дискотеку на проекторе»</b>. Это окно держите открытым (можно свернуть в отдельное окно).</li>
+    </ol>
+    <div class="row" id="addrRow" hidden>
+      <label><span data-t="addr">Адрес проектора</span><input id="addr" placeholder="http://192.168.1.50:8080"></label>
+    </div>
+    <div class="row">
+      <label><span data-t="pin">PIN (если задан)</span><input id="pin" type="password" autocomplete="off"></label>
+    </div>
+    <div class="row">
+      <button id="go" data-t="go">Начать передачу звука</button>
+      <button id="stop" class="ghost" hidden data-t="stop">Остановить</button>
+      <button id="disco" class="ghost" data-t="disco">🎉 Включить дискотеку на проекторе</button>
+    </div>
+    <canvas id="meter" width="720" height="110"></canvas>
+    <div id="status"></div>
+  </div>
+
+  <div class="card muted" id="help" data-t="help">
+    Нужен Chrome или Edge на компьютере: захват звука вкладки/системы другими браузерами и телефонами не поддерживается.
+    Если кнопка пишет, что захват недоступен, значит страница открыта не в «безопасном» контексте (адрес вида http://192.168…).
+    Решение: в Chrome откройте <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>, добавьте адрес проектора,
+    например <code>http://192.168.1.50:8080</code>, включите флаг и перезапустите браузер. Либо сохраните эту страницу как файл
+    (Ctrl+S) и откройте файл с диска: тогда адрес проектора нужно вписать вручную.
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const BANDS = 48, WAVE = 256, FFT = 2048;
+const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+const EN = {
+  title: 'Sound for disco mode',
+  s1: 'In this same browser open another tab with music (e.g. YouTube) and play it.',
+  s2: 'Press <b>Start sending sound</b> and pick the <b>tab with the music</b>.',
+  s3: 'Make sure <b>Share tab audio</b> (or <b>Share system audio</b> when sharing a screen on Windows) is ticked.',
+  s4: 'Press <b>Start disco on the projector</b>. Keep this window open.',
+  addr: 'Projector address', pin: 'PIN (if set)', go: 'Start sending sound', stop: 'Stop', disco: '🎉 Start disco on the projector',
+  help: 'Chrome or Edge on a computer is required: other browsers and phones cannot capture tab/system audio. If the button says capture is unavailable, the page is not in a "secure context" (an address like http://192.168…). In Chrome open chrome://flags/#unsafely-treat-insecure-origin-as-secure, add the projector address (e.g. http://192.168.1.50:8080), enable the flag and restart. Or save this page as a file (Ctrl+S) and open the file from disk: then type the projector address in manually.'
+};
+if (lang === 'en') {
+  document.documentElement.lang = 'en';
+  document.querySelectorAll('[data-t]').forEach(e => { if (EN[e.dataset.t]) e.innerHTML = EN[e.dataset.t]; });
+}
+const T = lang === 'ru' ? {
+  noAddr: 'Впишите адрес проектора (он показан на главном экране приложения).',
+  noCapture: 'Захват экрана/звука недоступен: откройте страницу в Chrome или Edge и прочтите подсказку внизу.',
+  noAudio: 'В выбранном источнике нет звука. Выберите вкладку и отметьте «Поделиться звуком вкладки».',
+  sending: 'Передаю звук на проектор…', waitDisco: 'Звук передаётся, но проектор не в режиме дискотеки. Нажмите «Включить дискотеку».',
+  wrongSource: 'Дискотека идёт, но источник звука на проекторе не «браузер». Нажмите «Включить дискотеку» здесь ещё раз.',
+  lost: 'Нет связи с проектором. Проверьте адрес и Wi-Fi.', pin: 'Нужен PIN.', ended: 'Передача остановлена.', started: 'Команда отправлена.'
+} : {
+  noAddr: 'Enter the projector address (shown on the app home screen).',
+  noCapture: 'Screen/audio capture is unavailable: use Chrome or Edge and read the hint below.',
+  noAudio: 'No audio in the selected source. Pick a tab and tick "Share tab audio".',
+  sending: 'Sending sound to the projector…', waitDisco: 'Sound is being sent, but the projector is not in disco mode. Press "Start disco".',
+  wrongSource: 'Disco is on, but the projector\'s sound source is not "browser". Press "Start disco" here again.',
+  lost: 'Cannot reach the projector. Check the address and Wi-Fi.', pin: 'PIN required.', ended: 'Sending stopped.', started: 'Command sent.'
+};
+
+const fromProjector = location.protocol.startsWith('http');
+let base = fromProjector ? location.origin : (localStorage.getItem('pw_base') || '');
+$('#addr').value = base;
+$('#pin').value = localStorage.getItem('pw_pin') || '';
+if (!fromProjector) $('#addrRow').hidden = false;
+
+function status(msg, cls) { const s = $('#status'); s.textContent = msg; s.className = cls || ''; }
+function readBase() {
+  if (!fromProjector) {
+    base = $('#addr').value.trim().replace(/\/+$/, '');
+    if (base && !/^https?:\/\//.test(base)) base = 'http://' + base;
+    localStorage.setItem('pw_base', base);
+  }
+  localStorage.setItem('pw_pin', $('#pin').value);
+  return base;
+}
+// the PIN goes in the query string and bodies are text/plain, so the browser needs no CORS preflight
+function url(path) {
+  const pin = $('#pin').value;
+  return base + path + (pin ? '?pin=' + encodeURIComponent(pin) : '');
+}
+const post = (path, obj) => fetch(url(path), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(obj) });
+
+// ---- start / stop disco ----
+$('#disco').onclick = async () => {
+  if (!readBase()) return status(T.noAddr, 'err');
+  try {
+    let r = await post('/api/settings', { discoSource: 'remote' });
+    if (r.status === 401) return status(T.pin, 'err');
+    await post('/api/control', { action: 'disco' });
+    status(T.started, 'ok');
+  } catch (e) { status(T.lost, 'err'); }
+};
+
+// ---- capture ----
+let stream = null, ctx = null, analyser = null, worker = null, inflight = false, wavePeak = 0.1;
+const freq = new Float32Array(FFT / 2), time = new Float32Array(FFT);
+const bands = new Float32Array(BANDS);
+let lastMode = '', lastSource = '';
+
+$('#go').onclick = async () => {
+  if (!readBase()) return status(T.noAddr, 'err');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return status(T.noCapture, 'err');
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 1 }, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      systemAudio: 'include', selfBrowserSurface: 'exclude',
+    });
+  } catch (e) { return status(String(e.message || e), 'err'); }
+  if (!stream.getAudioTracks().length) { stream.getTracks().forEach(t => t.stop()); stream = null; return status(T.noAudio, 'err'); }
+  stream.getAudioTracks()[0].addEventListener('ended', stopAll);
+  ctx = new AudioContext();
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = FFT;
+  analyser.smoothingTimeConstant = 0;
+  ctx.createMediaStreamSource(new MediaStream(stream.getAudioTracks())).connect(analyser);
+  // a worker drives the loop: timers in a background tab are throttled to 1 Hz, messages from a worker are not
+  worker = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),40)'])));
+  worker.onmessage = tick;
+  $('#go').hidden = true; $('#stop').hidden = false;
+  status(T.sending, 'ok');
+};
+$('#stop').onclick = () => { stopAll(); };
+
+function stopAll() {
+  if (worker) { worker.terminate(); worker = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (ctx) { ctx.close(); ctx = null; }
+  $('#go').hidden = false; $('#stop').hidden = true;
+  status(T.ended);
+}
+
+/** 48 log-spaced bands between 50 Hz and 14 kHz (same mapping as the app's own analyser). */
+function mapBands(binHz) {
+  const count = freq.length, fMin = 50, fMax = Math.min(14000, binHz * count * 0.98), ratio = fMax / fMin;
+  const lin = k => Math.pow(10, freq[k] / 20);
+  for (let i = 0; i < BANDS; i++) {
+    const f0 = fMin * Math.pow(ratio, i / BANDS), f1 = fMin * Math.pow(ratio, (i + 1) / BANDS);
+    const b0 = Math.max(1, Math.floor(f0 / binHz)), b1 = Math.min(count, Math.floor(f1 / binHz));
+    let m = 0;
+    if (b1 - b0 <= 1) {
+      const p = (f0 + f1) / 2 / binHz, k = Math.min(Math.max(Math.floor(p), 1), count - 2), fr = p - k;
+      m = lin(k) * (1 - fr) + lin(k + 1) * fr;
+    } else {
+      for (let b = b0; b < b1; b++) m = Math.max(m, lin(b));
+    }
+    bands[i] = m;
+  }
+}
+
+function tick() {
+  if (!analyser) return;
+  analyser.getFloatFrequencyData(freq);
+  analyser.getFloatTimeDomainData(time);
+  mapBands(ctx.sampleRate / FFT);
+
+  let sum = 0, peak = 0;
+  for (let i = 0; i < FFT; i++) { const v = time[i]; sum += v * v; if (Math.abs(v) > peak) peak = Math.abs(v); }
+  wavePeak = Math.max(wavePeak * 0.995, peak, 0.02);
+  const w = new Array(WAVE);
+  for (let i = 0; i < WAVE; i++) w[i] = Math.round(Math.max(-1, Math.min(1, time[FFT - 2 * WAVE + 2 * i] / wavePeak)) * 100);
+  const payload = { b: Array.from(bands, v => Math.round(v * 10000)), w, r: Math.round(Math.sqrt(sum / FFT) * 10000) };
+
+  draw();
+  send(payload);
+}
+
+async function send(payload) {
+  if (inflight) return; // drop frames rather than queue them
+  inflight = true;
+  try {
+    const r = await fetch(url('/api/audio'), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+    if (r.status === 401) { status(T.pin, 'err'); return; }
+    const j = await r.json();
+    if (j.mode !== lastMode || j.source !== lastSource) {
+      lastMode = j.mode; lastSource = j.source;
+      if (j.mode !== 'disco') status(T.waitDisco);
+      else if (j.source !== 'remote') status(T.wrongSource, 'err');
+      else status(T.sending, 'ok');
+    }
+  } catch (e) { status(T.lost, 'err'); lastMode = ''; }
+  finally { inflight = false; }
+}
+
+const cv = $('#meter'), g = cv.getContext('2d');
+function draw() {
+  g.clearRect(0, 0, cv.width, cv.height);
+  let mx = 0.0001; for (const v of bands) if (v > mx) mx = v;
+  const bw = cv.width / BANDS;
+  for (let i = 0; i < BANDS; i++) {
+    const h = Math.pow(bands[i] / mx, 0.7) * (cv.height - 4);
+    g.fillStyle = 'hsl(' + (i * 300 / BANDS) + ',85%,60%)';
+    g.fillRect(i * bw + 1, cv.height - h, bw - 2, h);
+  }
+}
+</script>
+</body>
+</html>

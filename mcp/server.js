@@ -56,6 +56,19 @@ async function call(path, { method = "GET", json, body, headers = {} } = {}) {
   return data;
 }
 
+async function callBinary(path) {
+  const h = {};
+  if (PIN) h["X-Pin"] = PIN;
+  let res;
+  try {
+    res = await fetch(BASE + path, { headers: h, signal: AbortSignal.timeout(30_000) });
+  } catch (e) {
+    throw new Error(`Cannot reach the projector at ${BASE} (${e.cause?.code || e.message}).`);
+  }
+  if (!res.ok) throw new Error(`Projector answered ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 const control = (action) => call("/api/control", { method: "POST", json: { action } });
 const setSettings = (s) => call("/api/settings", { method: "POST", json: s });
 
@@ -86,7 +99,7 @@ const settingsShape = {
   onMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   offMinutes: z.number().int().min(0).max(1439).describe("minutes from midnight"),
   autostart: z.boolean(),
-  discoSource: z.enum(["mic", "output", "demo"]).describe("sound for disco mode: projector microphone, device audio, or built-in demo beat"),
+  discoSource: z.enum(["remote", "mic", "output", "demo"]).describe("sound for disco mode: remote = a browser on a computer sends the sound (default), mic = projector microphone, output = device audio, demo = built-in beat"),
   discoVisual: z.enum(["auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"]),
   discoAutoSec: z.number().int().min(5).max(600),
   discoSens: z.number().int().min(40).max(400).describe("percent"),
@@ -105,13 +118,32 @@ function buildServer() {
     },
     async () => {
       const s = await call("/api/state");
+      const now = await call("/api/now");
+      const onScreen = now.mode === "disco" ? `disco effect "${now.effectTitle}"` : now.photo ? `photo ${now.photo}${now.paused ? " (paused)" : ""}` : now.night ? "black screen (night schedule)" : "";
       const text = [
-        `Mode: ${describeMode(s)}`,
+        `Mode: ${describeMode(s)}${onScreen ? " — " + onScreen : ""}`,
         `Photos: ${s.photos.length} (${(s.totalBytes / 1e6).toFixed(0)} MB, ${(s.freeBytes / 1e9).toFixed(1)} GB free)`,
         `Address: ${s.url}`,
         `Settings: ${JSON.stringify(s.settings)}`,
       ].join("\n");
       return ok(text, { mode: s.mode, photoCount: s.photos.length, url: s.url, settings: s.settings });
+    },
+  );
+
+  server.registerTool(
+    "see_screen",
+    {
+      title: "See the projector screen",
+      description: "Get a picture of what the projector shows now: a still of the current photo (slideshow) or a small snapshot of the disco effect. Use it to check that a command worked.",
+      annotations: { readOnlyHint: true },
+    },
+    async () => {
+      const now = await call("/api/now");
+      let bytes;
+      if (now.mode === "disco") bytes = await callBinary("/api/frame");
+      else if (now.mode === "slideshow" && now.photo) bytes = await callBinary(`/api/thumb/${encodeURIComponent(now.photo)}?s=960`);
+      else return ok("Nothing is being shown on the projector (home screen, another app, or night schedule).");
+      return { content: [{ type: "image", data: bytes.toString("base64"), mimeType: "image/jpeg" }, { type: "text", text: now.mode === "disco" ? `Disco, effect "${now.effectTitle}"` : `Photo ${now.photo}` }] };
     },
   );
 
@@ -198,7 +230,7 @@ function buildServer() {
       description:
         "Control the disco / music-visualizer mode (colour music reacting to sound). 'start' turns it on, 'stop' closes it, 'next_effect'/'prev_effect' switch the effect. " +
         "Optionally set effect (bars, circle, rings, wave, lamps=colour-music lamps, fireworks, warp=starfield, hills, or auto to rotate), sound source (mic, output, demo), sensitivity (percent) and beat flashes before starting. " +
-        "If the projector has no microphone use source=demo.",
+        "Source remote needs a computer to send sound via the projector's /sender page; with no sender it plays a demo beat. The projector's own microphone is usually in the remote control and hears nothing.",
       inputSchema: {
         action: z.enum(["start", "stop", "next_effect", "prev_effect"]),
         effect: settingsShape.discoVisual.optional(),

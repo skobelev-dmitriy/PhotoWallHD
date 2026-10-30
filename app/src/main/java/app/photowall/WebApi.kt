@@ -10,11 +10,19 @@ import java.net.URLDecoder
 class WebApi(private val ctx: Context) {
     private val prefs = Prefs(ctx)
     private val store = PhotoStore.get(ctx)
-    private var indexHtml: ByteArray? = null
+    private val pages = HashMap<String, ByteArray>()
 
     fun handle(req: Request): Response {
+        val r = route(req)
+        // The sound-sender page may be opened from a file or another origin, so the API allows cross-origin calls.
+        return if (req.path.startsWith("/api/")) r.withHeaders(CORS) else r
+    }
+
+    private fun route(req: Request): Response {
         val path = req.path
-        if (req.method == "GET" && (path == "/" || path == "/index.html")) return page()
+        if (req.method == "OPTIONS") return Response(204, bytes = ByteArray(0))
+        if (req.method == "GET" && (path == "/" || path == "/index.html")) return page("index.html")
+        if (req.method == "GET" && (path == "/sender" || path == "/sender.html")) return page("sender.html")
         if (path == "/api/ping") return Response.json(JSONObject().put("ok", true).put("pin", prefs.pin.isNotEmpty()))
 
         val pin = prefs.pin
@@ -22,18 +30,21 @@ class WebApi(private val ctx: Context) {
 
         return when {
             req.method == "GET" && path == "/api/state" -> state()
-            req.method == "GET" && path.startsWith("/api/thumb/") -> thumb(path.removePrefix("/api/thumb/"))
+            req.method == "GET" && path == "/api/now" -> now()
+            req.method == "GET" && path == "/api/frame" -> frame()
+            req.method == "GET" && path.startsWith("/api/thumb/") -> thumb(path.removePrefix("/api/thumb/"), req.query["s"])
             req.method == "GET" && path.startsWith("/photo/") -> original(path.removePrefix("/photo/"))
             req.method == "POST" && path == "/api/upload" -> upload(req)
             req.method == "POST" && path == "/api/delete" -> delete(req)
             req.method == "POST" && path == "/api/settings" -> settings(req)
             req.method == "POST" && path == "/api/control" -> control(req)
+            req.method == "POST" && path == "/api/audio" -> audio(req)
             else -> Response.error(404, "not found")
         }
     }
 
-    private fun page(): Response {
-        val html = indexHtml ?: ctx.assets.open("web/index.html").use { it.readBytes() }.also { indexHtml = it }
+    private fun page(name: String): Response {
+        val html = synchronized(pages) { pages.getOrPut(name) { ctx.assets.open("web/$name").use { it.readBytes() } } }
         return Response(200, "text/html; charset=utf-8", bytes = html, headers = mapOf("Cache-Control" to "no-cache"))
     }
 
@@ -52,9 +63,30 @@ class WebApi(private val ctx: Context) {
         return Response.json(obj)
     }
 
-    private fun thumb(name: String): Response {
+    /** What the projector is showing: the current photo (slideshow) or the current effect (disco). */
+    private fun now(): Response {
+        val o = JSONObject().put("mode", Remote.mode)
+        val show = Remote.view
+        val disco = Remote.disco
+        if (disco != null) {
+            o.put("effect", disco.effectId).put("effectTitle", disco.effectTitle).put("auto", disco.isAuto)
+                .put("source", Remote.feed?.activeSource ?: "")
+        } else if (show != null) {
+            o.put("photo", show.shownName ?: JSONObject.NULL).put("paused", show.isPaused).put("night", show.isNight)
+        }
+        return Response.json(o)
+    }
+
+    /** A small JPEG of the disco screen for the web preview (poll it at a low rate). */
+    private fun frame(): Response {
+        val jpeg = Remote.snapshot() ?: return Response.error(404, "disco is not on screen")
+        return Response(200, "image/jpeg", bytes = jpeg, headers = mapOf("Cache-Control" to "no-store"))
+    }
+
+    private fun thumb(name: String, size: String?): Response {
         val photo = store.find(name) ?: return Response.error(404, "no such photo")
-        val f = store.thumb(photo) ?: return Response.error(415, "cannot decode")
+        val side = if (size == "960") 960 else 480
+        val f = store.thumb(photo, side) ?: return Response.error(415, "cannot decode")
         return Response(200, "image/jpeg", file = f, headers = mapOf("Cache-Control" to "public, max-age=86400"))
     }
 
@@ -114,12 +146,28 @@ class WebApi(private val ctx: Context) {
         return Response.json(JSONObject().put("ok", true))
     }
 
+    /** A frame of analysed sound from a browser (see sender.html); feeds the disco screen if it is open. */
+    private fun audio(req: Request): Response {
+        val feed = Remote.feed
+        if (req.contentLength in 1..64 * 1024) {
+            val j = readJson(req)
+            feed?.pushRemote(j.optJSONArray("b"), j.optJSONArray("w"), j.optDouble("r", 1.0))
+        }
+        return Response.json(JSONObject().put("ok", true).put("mode", Remote.mode).put("source", feed?.activeSource ?: ""))
+    }
+
     private fun readJson(req: Request): JSONObject {
         if (req.contentLength <= 0 || req.contentLength > 1024 * 1024) return JSONObject()
         return JSONObject(String(req.body.readBytes(), Charsets.UTF_8))
     }
 
     private companion object {
+        val CORS = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers" to "Content-Type, X-Pin, X-Filename",
+            "Access-Control-Max-Age" to "600",
+        )
         const val MAX_UPLOAD = 300L * 1024 * 1024
     }
 }

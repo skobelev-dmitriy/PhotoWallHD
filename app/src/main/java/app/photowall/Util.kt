@@ -38,6 +38,10 @@ object Remote {
     @Volatile
     var disco: DiscoView? = null
 
+    /** The audio analyser of the disco screen, so the web API can push sound into it. */
+    @Volatile
+    var feed: AudioFeed? = null
+
     val active: Boolean get() = view != null || disco != null
 
     /** What is on screen right now: "slideshow", "disco" or "idle". */
@@ -48,6 +52,36 @@ object Remote {
     }
 
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val snapLock = Any()
+    private var snapJpeg: ByteArray? = null
+    private var snapAt = 0L
+
+    /** Low-frame-rate preview of the disco screen (null if disco is not on screen). Cached for 400 ms. */
+    fun snapshot(): ByteArray? {
+        val d = disco ?: return null
+        synchronized(snapLock) {
+            val cached = snapJpeg
+            if (cached != null && android.os.SystemClock.uptimeMillis() - snapAt < 400) return cached
+        }
+        val result = java.util.concurrent.atomic.AtomicReference<ByteArray?>(null)
+        val latch = java.util.concurrent.CountDownLatch(1)
+        main.post {
+            try {
+                result.set(d.snapshotJpeg(640))
+            } catch (e: Exception) {
+                // view is going away
+            } finally {
+                latch.countDown()
+            }
+        }
+        if (!latch.await(800, java.util.concurrent.TimeUnit.MILLISECONDS)) return null
+        val jpeg = result.get() ?: return null
+        synchronized(snapLock) {
+            snapJpeg = jpeg
+            snapAt = android.os.SystemClock.uptimeMillis()
+        }
+        return jpeg
+    }
 
     fun send(action: String) {
         main.post {

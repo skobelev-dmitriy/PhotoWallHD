@@ -56,6 +56,15 @@
   <h1>🖼 PhotoWall HD <span class="chip" id="status">…</span></h1>
 
   <div class="card">
+    <h2 data-t="now">Сейчас на экране</h2>
+    <div id="nowBox" style="aspect-ratio:16/9;background:#0c0e14;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      <img id="nowImg" alt="" hidden style="width:100%;height:100%;object-fit:contain">
+      <span id="nowTxt" class="muted"></span>
+    </div>
+    <div class="muted" id="nowCap" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
     <h2 data-t="show">Показ</h2>
     <div class="row">
       <button class="ghost" onclick="ctl('prev')">⏮</button>
@@ -75,6 +84,7 @@
     <div class="settings" style="margin-top:14px">
       <label class="f"><span data-t="dSource">Источник звука</span>
         <select data-key="discoSource">
+          <option value="remote" data-t="dRemote">браузер (звук с компьютера)</option>
           <option value="mic" data-t="dMic">микрофон проектора</option>
           <option value="output" data-t="dOut">звук самого устройства</option>
           <option value="demo" data-t="dDemo">демо (без звука)</option>
@@ -100,6 +110,7 @@
         <input type="range" min="40" max="400" step="10" data-key="discoSens" data-type="int" id="sens"></label>
       <label class="f inline"><input type="checkbox" data-key="discoFlash" data-type="bool"><span data-t="dFlash">Мягкие вспышки на бит</span></label>
     </div>
+    <p class="muted"><a href="/sender" target="_blank" style="color:var(--accent)" data-t="dSender">Передавать звук из браузера (YouTube и др.) →</a></p>
     <p class="muted" data-t="dWarn">Внимание: мигающий свет может быть опасен при светочувствительной эпилепсии. Для безопасности вспышки слабые, их можно отключить.</p>
   </div>
 
@@ -198,13 +209,15 @@ const T = {
     running: 'slideshow running', idle: 'slideshow not started', saved: 'Saved', pinSet: 'PIN saved', pinCleared: 'PIN removed',
     askPin: 'Enter PIN', free: 'free space', of: 'photos', confirmDel: 'Delete selected photos: ',
     badFormat: 'unsupported format', tooBig: 'too large', noSpace: 'no space left', failed: 'failed',
-    disco: 'Disco', startDisco: '🎉 Start disco on the projector', dSource: 'Sound source', dMic: 'projector microphone', dOut: 'device audio output', dDemo: 'demo (no audio)',
+    now: 'On screen now', nowIdle: 'Nothing is shown (home screen or another app)', nowNight: 'Night schedule: black screen', nowPaused: 'paused', nowDisco: 'Disco',
+    disco: 'Disco', startDisco: '🎉 Start disco on the projector', dSource: 'Sound source', dRemote: 'browser (sound from a computer)', dSender: 'Send sound from the browser (YouTube etc.) →', dMic: 'projector microphone', dOut: 'device audio output', dDemo: 'demo (no audio)',
     dVisual: 'Effect', dAuto: 'auto (rotate)', dAutoSec: 'Switch effect every', dSens: 'Sensitivity', dFlash: 'Soft beat flashes',
     dWarn: 'Warning: flashing light can be dangerous for people with photosensitive epilepsy. Flashes are kept gentle and can be turned off.',
     s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
   },
   ru: {
     s: 'с', min: 'мин', h: 'ч',
+    now: 'Сейчас на экране', nowIdle: 'Ничего не показывается (главный экран или другое приложение)', nowNight: 'Ночное расписание: чёрный экран', nowPaused: 'пауза', nowDisco: 'Дискотека',
     running: 'показ идёт', idle: 'показ не запущен', saved: 'Сохранено', pinSet: 'PIN сохранён', pinCleared: 'PIN удалён',
     askPin: 'Введите PIN', free: 'свободно', of: 'фото', confirmDel: 'Удалить выбранные фото: ',
     badFormat: 'формат не поддерживается', tooBig: 'слишком большой', noSpace: 'нет места', failed: 'ошибка',
@@ -391,7 +404,45 @@ async function uploadAll(files) {
   setTimeout(() => rows.forEach(r => r.el.classList.contains('ok') && r.el.remove()), 4000);
 }
 
+// ---- live preview: a still of the current photo (no effects), or ~2 fps stills of the disco screen ----
+const nowImg = $('#nowImg'), nowTxt = $('#nowTxt'), nowCap = $('#nowCap');
+let nowMode = 'idle', nowPhoto = null, frameBusy = false;
+const pinQ = () => (PIN ? '&pin=' + encodeURIComponent(PIN) : '');
+function showText(msg) { nowImg.hidden = true; nowTxt.hidden = false; nowTxt.textContent = msg; }
+function setImg(src, onDone) {
+  const im = new Image();
+  im.onload = () => { nowImg.src = im.src; nowImg.hidden = false; nowTxt.hidden = true; onDone && onDone(); };
+  im.onerror = () => onDone && onDone();
+  im.src = src;
+}
+async function pollNow() {
+  if (document.hidden) return;
+  try {
+    const j = await (await api('/api/now')).json();
+    nowMode = j.mode;
+    if (j.mode === 'slideshow') {
+      if (j.night) { nowPhoto = null; showText(t('nowNight')); nowCap.textContent = ''; }
+      else if (j.photo) {
+        if (j.photo !== nowPhoto) { nowPhoto = j.photo; setImg('/api/thumb/' + encodeURIComponent(j.photo) + '?s=960' + pinQ()); }
+        nowCap.textContent = j.photo + (j.paused ? ' · ' + t('nowPaused') : '');
+      }
+    } else if (j.mode === 'disco') {
+      nowPhoto = null;
+      nowCap.textContent = t('nowDisco') + ' · ' + j.effectTitle + (j.auto ? ' · auto' : '');
+    } else {
+      nowPhoto = null; showText(t('nowIdle')); nowCap.textContent = '';
+    }
+  } catch (e) {}
+}
+setInterval(pollNow, 1500);
+setInterval(() => {
+  if (nowMode !== 'disco' || frameBusy || document.hidden) return;
+  frameBusy = true;
+  setImg('/api/frame?t=' + Date.now() + pinQ(), () => { frameBusy = false; });
+}, 500);
+
 (async () => {
+  pollNow();
   try { await load(); } catch (e) {}
   setInterval(() => load(true).catch(() => {}), 10000);
 })();

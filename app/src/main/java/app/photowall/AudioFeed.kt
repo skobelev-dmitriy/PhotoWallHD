@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.Visualizer
 import android.os.SystemClock
+import org.json.JSONArray
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -49,6 +50,7 @@ class AudioFeed(private val prefs: Prefs) {
     /** How long the input has been silent, in seconds. */
     @Volatile var silentSec = 0f
 
+    @Volatile private var remoteLastMs = 0L
     @Volatile private var running = false
     private var thread: Thread? = null
     private var visualizer: Visualizer? = null
@@ -59,6 +61,7 @@ class AudioFeed(private val prefs: Prefs) {
     private var bassAvg = 0f
     private var lastBeatMs = 0L
     private val raw = FloatArray(BANDS)
+    private val remoteRaw = FloatArray(BANDS)
     private val fft = Fft(FFT_N)
 
     fun start(requested: String, micAllowed: Boolean) {
@@ -68,6 +71,7 @@ class AudioFeed(private val prefs: Prefs) {
         silentSec = 0f
         when {
             requested == "demo" -> startDemo()
+            requested == "remote" -> startDemo("remote")
             !micAllowed -> {
                 note = tr("Нет разрешения на запись звука: показываю демо", "No audio permission: showing the demo")
                 startDemo()
@@ -91,6 +95,13 @@ class AudioFeed(private val prefs: Prefs) {
 
     /** Call once per frame from the UI thread. */
     fun tick(dt: Float) {
+        if (activeSource == "remote") {
+            val fresh = SystemClock.uptimeMillis() - remoteLastMs < 2500
+            note = if (fresh) null else tr(
+                "Показываю демо. Чтобы играла ваша музыка, откройте на компьютере ${Net.url(ServerService.port)}/sender",
+                "Showing the demo. To use your music, open ${Net.url(ServerService.port)}/sender on a computer"
+            )
+        }
         if (beatPending) {
             beatPending = false
             beat = 1f
@@ -209,13 +220,18 @@ class AudioFeed(private val prefs: Prefs) {
 
     // ---- built-in generator ----
 
-    private fun startDemo() {
-        activeSource = "demo"
+    /** Built-in beat. With source "remote" it only plays while no browser is sending sound. */
+    private fun startDemo(source: String = "demo") {
+        activeSource = source
         thread = Thread({
             var t = 0f
             val r = java.util.Random()
             try {
                 while (running) {
+                    if (activeSource == "remote" && SystemClock.uptimeMillis() - remoteLastMs < 1500) {
+                        Thread.sleep(100)
+                        continue
+                    }
                     t += 0.016f
                     val phase = (t * 124f / 60f) % 1f
                     val kick = exp(-phase * 6f)
@@ -238,6 +254,25 @@ class AudioFeed(private val prefs: Prefs) {
             } catch (e: InterruptedException) {
             }
         }, "photowall-demo").also { it.isDaemon = true; it.start() }
+    }
+
+    // ---- sound sent from a browser (see assets/web/sender.html) ----
+
+    /**
+     * One frame from the browser: [bands] are linear amplitudes x10000 for [BANDS] bands, [w] a waveform in -100..100,
+     * [rms] the level x10000.
+     */
+    fun pushRemote(bands: JSONArray?, w: JSONArray?, rms: Double) {
+        if (activeSource != "remote" || bands == null) return
+        val now = SystemClock.uptimeMillis()
+        val dt = ((now - remoteLastMs) / 1000f).coerceIn(0.01f, 0.2f)
+        remoteLastMs = now
+        for (i in 0 until BANDS) remoteRaw[i] = bands.optDouble(i, 0.0).toFloat() / 10000f
+        if (w != null) {
+            val sens = prefs.discoSens / 100f
+            for (i in 0 until min(w.length(), WAVE)) wave[i] = (w.optDouble(i, 0.0).toFloat() / 100f * sens).coerceIn(-1f, 1f)
+        }
+        process(remoteRaw, (rms / 10000.0).toFloat(), dt)
     }
 
     // ---- analysis ----
@@ -266,6 +301,7 @@ class AudioFeed(private val prefs: Prefs) {
     }
 
     /** Auto gain, smoothing, bass/mid/treble and beat detection for one frame of band energies. */
+    @Synchronized
     private fun process(r: FloatArray, signal: Float, seconds: Float) {
         var mx = 0f
         for (i in 0 until BANDS) {

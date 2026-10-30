@@ -34,7 +34,7 @@ class Prefs(context: Context) {
     var pin by strPref("pin", "", null)
 
     // disco mode
-    var discoSource by strPref("discoSource", "mic", setOf("mic", "output", "demo"))
+    var discoSource by strPref("discoSource", "remote", setOf("remote", "mic", "output", "demo"))
     var discoVisual by strPref("discoVisual", "auto", setOf("auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"))
     var discoAutoSec by intPref("discoAutoSec", 20, 5, 600)
     var discoSens by intPref("discoSens", 100, 40, 400)

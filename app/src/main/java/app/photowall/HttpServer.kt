@@ -32,6 +32,8 @@ class Response(
     val file: File? = null,
     val headers: Map<String, String> = emptyMap(),
 ) {
+    fun withHeaders(extra: Map<String, String>) = Response(status, contentType, bytes, file, headers + extra)
+
     companion object {
         fun json(obj: JSONObject, status: Int = 200) = Response(status, bytes = obj.toString().toByteArray())
         fun error(status: Int, message: String) =
@@ -175,6 +177,7 @@ class HttpServer(private val handler: (Request) -> Response) {
 
     private fun reason(status: Int) = when (status) {
         200 -> "OK"
+        204 -> "No Content"
         400 -> "Bad Request"
         401 -> "Unauthorized"
         404 -> "Not Found"

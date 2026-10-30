@@ -38,6 +38,14 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     /** Asks the host to close the show (used by the remote "stop" command). */
     var onClose: (() -> Unit)? = null
 
+    /** File name of the photo on screen right now (for the web preview). */
+    @Volatile
+    var shownName: String? = null
+        private set
+
+    val isPaused: Boolean get() = paused
+    val isNight: Boolean get() = night
+
     private val prefs = Prefs(context)
     private val store = PhotoStore.get(context)
     private val handler = Handler(Looper.getMainLooper())
@@ -151,6 +159,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
         cacheBmp = null
         cacheName = null
         wantedName = null
+        shownName = null
         night = false
         nightCover.visibility = GONE
     }
@@ -280,6 +289,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     // ---- showing ----
 
     private fun present(bmp: Bitmap, dir: Int) {
+        shownName = wantedName
         wantedName = null
         settle()
         val w = if (width > 0) width else dm.widthPixels
@@ -360,6 +370,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     }
 
     private fun showEmpty() {
+        shownName = null
         settle()
         front.setImageDrawable(null)
         firstImage = true

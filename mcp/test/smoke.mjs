@@ -14,6 +14,8 @@ const fake = createServer((req, res) => {
     log.push({ method: req.method, url: req.url, pin: req.headers["x-pin"], fn: req.headers["x-filename"], len: body.length, body: req.url.startsWith("/api/upload") ? null : body.toString() });
     const send = (o, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
     if (req.url === "/api/state") return send(state);
+    if (req.url === "/api/now") return send(state.mode === "disco" ? { mode: "disco", effectTitle: "Colour music", auto: false } : { mode: state.mode });
+    if (req.url.startsWith("/api/frame")) { res.writeHead(200, { "Content-Type": "image/jpeg" }); return res.end(Buffer.from([0xff, 0xd8, 0xff, 0xd9])); }
     if (req.url === "/api/control") {
       const a = JSON.parse(body.toString()).action;
       state.mode = a === "disco" ? "disco" : a === "stop" ? "idle" : a === "start" ? "slideshow" : state.mode;
@@ -32,13 +34,19 @@ const client = new Client({ name: "smoke", version: "1" });
 await client.connect(new StdioClientTransport({ command: "node", args: ["server.js"], env: { ...process.env, PHOTOWALL_URL: url, PHOTOWALL_PIN: "1234" } }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-assert.deepEqual(tools, ["add_photo", "delete_photos", "disco", "list_photos", "projector_status", "slideshow", "update_settings"]);
+assert.deepEqual(tools, ["add_photo", "delete_photos", "disco", "list_photos", "projector_status", "see_screen", "slideshow", "update_settings"]);
 
 let r = await client.callTool({ name: "disco", arguments: { action: "start", effect: "lamps", source: "demo" } });
 assert.match(r.content[0].text, /disco mode/);
 assert.equal(state.settings.discoVisual, "lamps");
 assert.equal(state.settings.discoSource, "demo");
 assert.ok(log.every((l) => l.pin === "1234"), "PIN header sent on every call");
+
+r = await client.callTool({ name: "see_screen", arguments: {} });
+assert.equal(r.content[0].type, "image");
+assert.equal(r.content[0].mimeType, "image/jpeg");
+r = await client.callTool({ name: "projector_status", arguments: {} });
+assert.match(r.content[0].text, /Colour music/);
 
 r = await client.callTool({ name: "slideshow", arguments: { action: "stop" } });
 assert.match(r.content[0].text, /nothing on screen/);
