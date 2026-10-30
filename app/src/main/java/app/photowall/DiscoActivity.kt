@@ -28,6 +28,7 @@ class DiscoActivity : Activity() {
         prefs = Prefs(this)
         feed = AudioFeed(prefs)
         view = DiscoView(this, feed, prefs)
+        view.onClose = { finish() }
         view.setOnClickListener { view.step(1) }
         setContentView(view)
         ServerService.start(this, boot = false)

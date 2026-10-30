@@ -14,7 +14,7 @@
 | `POST /api/upload` | Тело — **сам файл**, заголовок `X-Filename: <имя, URL-кодированное>`. Ответ `{"name","size"}`. Ошибки: `400` пусто, `413` больше 300 МБ, `415` не изображение, `507` нет места. Если имя занято, добавляется ` (1)`. |
 | `POST /api/delete` | `{"names":["a.jpg","b.jpg"]}`: удалить фото. |
 | `POST /api/settings` | JSON с любыми полями из настроек, ответ — текущие настройки. Поле `pin` задаёт или снимает PIN (пустая строка). |
-| `POST /api/control` | `{"action":"next"\|"prev"\|"pause"\|"resume"\|"toggle"\|"start"\|"disco"\|"dnext"\|"dprev"}`. `disco` запускает режим дискотеки, `dnext`/`dprev` меняют эффект. |
+| `POST /api/control` | `{"action":"next"\|"prev"\|"pause"\|"resume"\|"toggle"\|"start"\|"disco"\|"dnext"\|"dprev"\|"stop"}`. `disco` запускает режим дискотеки, `dnext`/`dprev` меняют эффект, `stop` закрывает показ или дискотеку. В `/api/state` поле `mode`: `slideshow`, `disco` или `idle`. |
 
 ## Настройки (`/api/settings`)
 

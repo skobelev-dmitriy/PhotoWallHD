@@ -46,6 +46,7 @@ class WebApi(private val ctx: Context) {
             .put("settings", prefs.toJson())
             .put("url", Net.url(ServerService.port))
             .put("active", Remote.active)
+            .put("mode", Remote.mode)
             .put("totalBytes", photos.sumOf { it.size })
             .put("freeBytes", store.dir.usableSpace)
         return Response.json(obj)
@@ -107,7 +108,7 @@ class WebApi(private val ctx: Context) {
         when (val action = readJson(req).optString("action")) {
             "start" -> ServerService.launchSlideshow(ctx)
             "disco" -> ServerService.launchDisco(ctx)
-            "next", "prev", "pause", "resume", "toggle", "dnext", "dprev" -> Remote.send(action)
+            "next", "prev", "pause", "resume", "toggle", "dnext", "dprev", "stop" -> Remote.send(action)
             else -> return Response.error(400, "unknown action")
         }
         return Response.json(JSONObject().put("ok", true))

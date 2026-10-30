@@ -1,0 +1,18 @@
+{
+  "name": "photowall-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that controls a PhotoWall HD projector over its local HTTP API",
+  "type": "module",
+  "main": "server.js",
+  "bin": { "photowall-mcp": "server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  }
+}

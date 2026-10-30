@@ -10,6 +10,9 @@ import kotlin.math.min
 
 /** Full-screen canvas that draws the current visualization and switches between them. */
 class DiscoView(context: Context, private val feed: AudioFeed, private val prefs: Prefs) : View(context) {
+    /** Asks the host to close the mode (used by the remote "stop" command). */
+    var onClose: (() -> Unit)? = null
+
     private val visuals = allVisuals()
     private var index = 0
     private var auto = true

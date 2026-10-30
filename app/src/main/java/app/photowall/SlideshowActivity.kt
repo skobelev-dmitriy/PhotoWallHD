@@ -20,6 +20,7 @@ class SlideshowActivity : Activity() {
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
         show = SlideshowView(this)
+        show.onClose = { finish() }
         show.onStatus = { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() }
         show.setOnClickListener { show.togglePause() }
         setContentView(show)

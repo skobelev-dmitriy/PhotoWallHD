@@ -40,6 +40,13 @@ object Remote {
 
     val active: Boolean get() = view != null || disco != null
 
+    /** What is on screen right now: "slideshow", "disco" or "idle". */
+    val mode: String get() = when {
+        disco != null -> "disco"
+        view != null -> "slideshow"
+        else -> "idle"
+    }
+
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun send(action: String) {
@@ -47,6 +54,10 @@ object Remote {
             when (action) {
                 "dnext" -> disco?.step(1)
                 "dprev" -> disco?.step(-1)
+                "stop" -> {
+                    disco?.onClose?.invoke()
+                    view?.onClose?.invoke()
+                }
             }
             val v = view ?: return@post
             when (action) {

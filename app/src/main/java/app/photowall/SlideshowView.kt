@@ -35,6 +35,9 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     /** Short messages such as "Paused" for the host to display. */
     var onStatus: ((String) -> Unit)? = null
 
+    /** Asks the host to close the show (used by the remote "stop" command). */
+    var onClose: (() -> Unit)? = null
+
     private val prefs = Prefs(context)
     private val store = PhotoStore.get(context)
     private val handler = Handler(Looper.getMainLooper())
