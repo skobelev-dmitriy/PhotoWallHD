@@ -3,7 +3,6 @@ package app.photowall
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.SystemClock
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -11,12 +10,12 @@ import java.io.InputStream
 import java.util.Locale
 
 /**
- * [name] is the path relative to the photos folder and the photo's id everywhere ("a.jpg" or "Trip/a.jpg");
- * [folder] is "" for photos that are not in any folder.
+ * [name] is the path relative to the photos folder and the photo's id everywhere ("a.jpg" or "Trip/day1/a.jpg");
+ * [folder] is its folder path ("Trip/day1"), or "" for photos that are not in any folder.
  */
 data class Photo(val name: String, val folder: String, val size: Long, val modified: Long, val file: File)
 
-/** The photos folder (with one level of sub-folders) plus a cache of small previews for the web UI. */
+/** The photos folder (folders may be nested up to [MAX_DEPTH] levels) plus a cache of small previews for the web UI. */
 class PhotoStore private constructor(context: Context) {
     val dir: File = (context.getExternalFilesDir("photos") ?: File(context.filesDir, "photos")).also { it.mkdirs() }
     private val thumbDir = File(context.cacheDir, "thumbs").also { it.mkdirs() }
@@ -29,32 +28,47 @@ class PhotoStore private constructor(context: Context) {
     private var cache: List<Photo> = emptyList()
     private var cacheAt = 0L
 
+    private fun nowMs() = System.nanoTime() / 1_000_000
+
     @Synchronized
     fun touch() {
         version++
         cacheAt = 0L
     }
 
-    /** All photos: those outside folders first, then each folder in alphabetical order; oldest first inside each group. */
+    /** All photos: those outside folders first, then each folder in tree order; oldest first inside each group. */
     fun list(): List<Photo> {
         synchronized(this) {
-            if (cacheAt != 0L && SystemClock.uptimeMillis() - cacheAt < 2000) return cache
+            if (cacheAt != 0L && nowMs() - cacheAt < 2000) return cache
         }
         val out = ArrayList<Photo>()
         collect(dir, "", out)
         for (f in folders()) collect(File(dir, f), f, out)
         synchronized(this) {
             cache = out
-            cacheAt = SystemClock.uptimeMillis()
+            cacheAt = nowMs()
         }
         return out
     }
 
-    fun folders(): List<String> = dir.listFiles()
-        ?.filter { it.isDirectory && !it.name.startsWith(".") }
-        ?.map { it.name }
-        ?.sortedBy { it.lowercase(Locale.ROOT) }
-        ?: emptyList()
+    /** Paths of all folders ("A", "A/B", ...), parents before children, alphabetical. */
+    fun folders(): List<String> {
+        val out = ArrayList<String>()
+        walk(dir, "", 0, out)
+        return out
+    }
+
+    private fun walk(d: File, prefix: String, depth: Int, out: MutableList<String>) {
+        if (depth >= MAX_DEPTH) return
+        d.listFiles()
+            ?.filter { it.isDirectory && !it.name.startsWith(".") }
+            ?.sortedBy { it.name.lowercase(Locale.ROOT) }
+            ?.forEach {
+                val path = if (prefix.isEmpty()) it.name else "$prefix/${it.name}"
+                out.add(path)
+                walk(it, path, depth + 1, out)
+            }
+    }
 
     private fun collect(d: File, folder: String, out: MutableList<Photo>) {
         d.listFiles()
@@ -73,7 +87,7 @@ class PhotoStore private constructor(context: Context) {
         val clean = sanitize(rawName)
         val ext = clean.substringAfterLast('.', "").lowercase(Locale.ROOT)
         require(ext in EXTENSIONS) { "unsupported extension" }
-        val folderName = sanitizeFolder(folder)
+        val folderName = sanitizeFolderPath(folder)
         val targetDir = if (folderName.isEmpty()) dir else File(dir, folderName).also { it.mkdirs() }
 
         val tmp = File(targetDir, ".upload-${System.nanoTime()}.part")
@@ -113,21 +127,23 @@ class PhotoStore private constructor(context: Context) {
 
     // ---- folders ----
 
+    /** Creates a folder (or a whole path "A/B/C") and returns its sanitized path. */
     @Synchronized
     fun createFolder(raw: String): String {
-        val name = sanitizeFolder(raw)
-        require(name.isNotEmpty()) { "empty folder name" }
-        File(dir, name).mkdirs()
+        val path = sanitizeFolderPath(raw)
+        require(path.isNotEmpty()) { "empty folder name" }
+        File(dir, path).mkdirs()
         touch()
-        return name
+        return path
     }
 
-    /** Returns the new (sanitized) name. */
+    /** Renames the last segment of [from]; returns the new path. */
     @Synchronized
     fun renameFolder(from: String, toRaw: String): String {
         require(from in folders()) { "no such folder" }
-        val to = sanitizeFolder(toRaw)
-        require(to.isNotEmpty()) { "empty folder name" }
+        val name = sanitizeSegment(toRaw.substringAfterLast('/'))
+        require(name.isNotEmpty()) { "empty folder name" }
+        val to = joinPath(from.substringBeforeLast('/', ""), name)
         if (to == from) return to
         require(!File(dir, to).exists()) { "folder already exists" }
         require(File(dir, from).renameTo(File(dir, to))) { "cannot rename" }
@@ -135,24 +151,44 @@ class PhotoStore private constructor(context: Context) {
         return to
     }
 
-    /** Photos inside are deleted, or moved out of the folder when [deletePhotos] is false. */
+    /** Moves the folder [from] (with everything in it) under [destParentRaw] ("" = top level); returns the new path. */
+    @Synchronized
+    fun moveFolder(from: String, destParentRaw: String): String {
+        val all = folders()
+        require(from in all) { "no such folder" }
+        val dest = sanitizeFolderPath(destParentRaw)
+        require(dest.isEmpty() || dest in all) { "no such destination" }
+        require(dest != from && !dest.startsWith("$from/")) { "cannot move a folder into itself" }
+        val to = joinPath(dest, from.substringAfterLast('/'))
+        if (to == from) return to
+        require(!File(dir, to).exists()) { "folder already exists there" }
+        require(depthOf(dest) + 1 + subtreeHeight(from) <= MAX_DEPTH) { "folders are nested too deeply" }
+        require(File(dir, from).renameTo(File(dir, to))) { "cannot move" }
+        touch()
+        return to
+    }
+
+    /** Photos inside (including sub-folders) are deleted, or moved out to the top level when [deletePhotos] is false. */
     @Synchronized
     fun deleteFolder(name: String, deletePhotos: Boolean) {
         require(name in folders()) { "no such folder" }
-        val d = File(dir, name)
-        d.listFiles()?.forEach { f ->
-            if (!f.isFile) return@forEach
-            if (deletePhotos || f.name.startsWith(".") || !isImage(f.name)) f.delete()
-            else f.renameTo(uniqueFile(dir, f.name))
+        if (!deletePhotos) {
+            for (p in list()) {
+                if (p.folder == name || p.folder.startsWith("$name/")) p.file.renameTo(uniqueFile(dir, p.file.name))
+            }
+        } else {
+            for (p in list()) {
+                if (p.folder == name || p.folder.startsWith("$name/")) clearThumbs(p.name)
+            }
         }
-        d.delete()
+        File(dir, name).deleteRecursively()
         touch()
     }
 
     /** Moves photos into [folderRaw] ("" = out of any folder). Returns old name -> new name for every moved photo. */
     @Synchronized
     fun move(names: List<String>, folderRaw: String): Map<String, String> {
-        val folder = sanitizeFolder(folderRaw)
+        val folder = sanitizeFolderPath(folderRaw)
         val destDir = if (folder.isEmpty()) dir else File(dir, folder).also { it.mkdirs() }
         val byName = list().associateBy { it.name }
         val moved = LinkedHashMap<String, String>()
@@ -162,11 +198,30 @@ class PhotoStore private constructor(context: Context) {
             val target = uniqueFile(destDir, p.file.name)
             if (p.file.renameTo(target)) {
                 clearThumbs(n)
-                moved[n] = if (folder.isEmpty()) target.name else "$folder/${target.name}"
+                moved[n] = joinPath(folder, target.name)
             }
         }
         touch()
         return moved
+    }
+
+    private fun depthOf(path: String) = if (path.isEmpty()) 0 else path.count { it == '/' } + 1
+
+    private fun subtreeHeight(path: String): Int =
+        folders().filter { it.startsWith("$path/") }.maxOfOrNull { depthOf(it) - depthOf(path) } ?: 0
+
+    // ---- image sizes (shown under the thumbnails) ----
+
+    private val dimCache = java.util.concurrent.ConcurrentHashMap<String, IntArray>()
+
+    /** Pixel size [w, h] as displayed (EXIF-rotated); read from the file once, null if not yet known and [compute] is false. */
+    fun dims(p: Photo, compute: Boolean): IntArray? {
+        val key = "${p.name}|${p.modified}|${p.size}"
+        dimCache[key]?.let { return it }
+        if (!compute) return null
+        val d = BitmapLoader.displaySize(p.file) ?: return null
+        dimCache[key] = d
+        return d
     }
 
     // ---- previews ----
@@ -215,11 +270,20 @@ class PhotoStore private constructor(context: Context) {
         return n.ifEmpty { "photo.jpg" }
     }
 
-    /** Folder names are one level deep and never contain slashes or leading dots. */
-    private fun sanitizeFolder(raw: String): String =
+    /** One path segment: no slashes, no leading/trailing dots or spaces, at most 60 characters. */
+    private fun sanitizeSegment(raw: String): String =
         raw.trim().replace(Regex("[^\\p{L}\\p{N}._ ()\\-]"), "_").trim('.', ' ').take(60)
 
+    /** "A/B/C" with every segment sanitized, empty segments dropped, at most [MAX_DEPTH] levels. */
+    fun sanitizeFolderPath(raw: String): String =
+        raw.split('/', '\\').map { sanitizeSegment(it) }.filter { it.isNotEmpty() }.take(MAX_DEPTH).joinToString("/")
+
     companion object {
+        /** Folders may be nested this deep ("A/B/C/D/E/F"). */
+        const val MAX_DEPTH = 6
+
+        fun joinPath(a: String, b: String) = if (a.isEmpty()) b else "$a/$b"
+
         val EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "bmp", "gif", "heic", "heif")
         private val thumbLock = Any()
         private var instance: PhotoStore? = null

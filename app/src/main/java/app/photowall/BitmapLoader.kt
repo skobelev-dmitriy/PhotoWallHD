@@ -66,6 +66,18 @@ object BitmapLoader {
         }
     }
 
+    /** Width and height as the photo is displayed (EXIF rotation applied), without decoding the pixels. */
+    fun displaySize(file: File): IntArray? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        try {
+            BitmapFactory.decodeFile(file.path, bounds)
+        } catch (e: Exception) {
+            return null
+        }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        return if (exifOrientation(file) in 5..8) intArrayOf(bounds.outHeight, bounds.outWidth) else intArrayOf(bounds.outWidth, bounds.outHeight)
+    }
+
     fun thumbnail(file: File, maxSide: Int): Bitmap? {
         val bmp = decode(file, maxSide, maxSide) ?: return null
         val longest = max(bmp.width, bmp.height)

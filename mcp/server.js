@@ -155,7 +155,7 @@ function buildServer() {
     "list_photos",
     {
       title: "List photos",
-      description: "List the photos stored on the projector, with their folders. Photo names are paths like 'Sea/wave.jpg'. Optionally only one folder ('' = photos outside folders).",
+      description: "List the photos stored on the projector, with their folders. Photo names are paths like 'Trip/day1/a.jpg'. Optionally only the photos directly in one folder ('' = photos outside folders).",
       inputSchema: { folder: z.string().optional() },
       annotations: { readOnlyHint: true },
     },
@@ -163,7 +163,7 @@ function buildServer() {
       const s = await call("/api/state");
       const photos = folder === undefined ? s.photos : s.photos.filter((p) => p.folder === folder);
       const lines = photos.map((p) => `${p.name}  ${(p.size / 1e6).toFixed(1)} MB  ${new Date(p.modified).toISOString().slice(0, 10)}`);
-      const head = `Folders: ${s.folders.map((f) => `${f.name} (${f.count})`).join(", ") || "none"}; photos outside folders: ${s.rootCount}`;
+      const head = `Folders: ${s.folders.map((f) => `${f.name} (${f.count}${f.total > f.count ? `, ${f.total} with sub-folders` : ""})`).join(", ") || "none"}; photos outside folders: ${s.rootCount}`;
       return ok(head + "\n" + (lines.length ? lines.join("\n") : "No photos."), { photos, folders: s.folders });
     },
   );
@@ -305,11 +305,11 @@ function buildServer() {
     "folders",
     {
       title: "Manage photo folders",
-      description: "Create, rename or delete folders of photos, or move photos into a folder. Photo names come from list_photos (e.g. 'Sea/wave.jpg'); folder '' for move means 'out of any folder'. delete removes the photos inside only if delete_photos is true, otherwise they move out of the folder.",
+      description: "Create, rename, move or delete folders of photos (folders nest up to 6 levels; a folder is a path like 'Trip/day1'), or move photos into a folder. Photo names come from list_photos (e.g. 'Trip/day1/a.jpg'); folder '' for move means 'out of any folder'. delete removes the photos inside (and in sub-folders) only if delete_photos is true, otherwise they move out to the top level.",
       inputSchema: {
-        action: z.enum(["create", "rename", "delete", "move"]),
-        name: z.string().optional().describe("folder name (create / rename / delete)"),
-        to: z.string().optional().describe("new folder name (rename)"),
+        action: z.enum(["create", "rename", "move_folder", "delete", "move"]),
+        name: z.string().optional().describe("folder path (create / rename / move_folder / delete)"),
+        to: z.string().optional().describe("rename: the new name of the last path segment; move_folder: the destination parent folder ('' = top level)"),
         delete_photos: z.boolean().optional().describe("delete: also delete the photos inside"),
         names: z.array(z.string()).optional().describe("move: photo names"),
         folder: z.string().optional().describe("move: destination folder, '' for none"),
@@ -323,8 +323,8 @@ function buildServer() {
         return ok(`Moved ${r.moved} photo(s) to ${folder || "no folder"}.`, r);
       }
       if (!name) throw new Error(`${action} needs a folder name.`);
-      await call("/api/folders", { method: "POST", json: { action, name, to, deletePhotos: delete_photos === true } });
-      return ok(`Folder ${action} done: ${name}${to ? ` -> ${to}` : ""}.`);
+      const r = await call("/api/folders", { method: "POST", json: { action: action === "move_folder" ? "move" : action, name, to, deletePhotos: delete_photos === true } });
+      return ok(`Folder ${action} done: ${name}${r.path ? ` -> ${r.path}` : ""}.`);
     },
   );
 
@@ -350,7 +350,7 @@ function buildServer() {
         action: z.enum(["list", "create", "update", "delete", "play", "set_schedule_mode"]),
         id: z.string().optional(),
         name: z.string().optional(),
-        folders: z.array(z.string()).optional().describe('folder names; "" means photos outside folders'),
+        folders: z.array(z.string()).optional().describe('folder paths (each includes its sub-folders); "" means only the photos outside folders'),
         photos: z.array(z.string()).optional().describe("single photo names, as in list_photos"),
         schedule_enabled: z.boolean().optional(),
         from: z.string().optional().describe("HH:MM start of the daily window"),

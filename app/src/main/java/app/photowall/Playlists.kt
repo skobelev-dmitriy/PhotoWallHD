@@ -56,10 +56,22 @@ class Playlists private constructor(private val ctx: Context) {
     }
 
     @Synchronized
-    fun renameFolder(from: String, to: String) = rewrite { it.copy(folders = it.folders.map { f -> if (f == from) to else f }, photos = it.photos.map { p -> if (p.startsWith("$from/")) "$to/${p.removePrefix("$from/")}" else p }) }
+    fun renameFolder(from: String, to: String) = rewrite {
+        fun re(path: String) = when {
+            path == from -> to
+            path.startsWith("$from/") -> to + path.removePrefix(from)
+            else -> path
+        }
+        it.copy(folders = it.folders.map(::re), photos = it.photos.map(::re))
+    }
 
     @Synchronized
-    fun removeFolder(name: String) = rewrite { it.copy(folders = it.folders.filter { f -> f != name }, photos = it.photos.filter { p -> !p.startsWith("$name/") }) }
+    fun removeFolder(name: String) = rewrite {
+        it.copy(
+            folders = it.folders.filter { f -> f != name && !f.startsWith("$name/") },
+            photos = it.photos.filter { p -> !p.startsWith("$name/") },
+        )
+    }
 
     @Synchronized
     fun renamePhotos(map: Map<String, String>) {
@@ -87,12 +99,16 @@ class Playlists private constructor(private val ctx: Context) {
 
     fun effectiveKey(prefs: Prefs): String = effective(prefs)?.id ?: ""
 
-    /** Photo paths of [p] in playing order: its folders first, then its single photos. */
+    /**
+     * Photo paths of [p] in playing order: its folders first (a folder includes all its sub-folders; "" means only the
+     * photos outside any folder), then its single photos.
+     */
     fun resolve(all: List<Photo>, p: Playlist?): List<String> {
         if (p == null) return all.map { it.name }
-        val byFolder = all.groupBy { it.folder }
         val out = LinkedHashSet<String>()
-        for (f in p.folders) byFolder[f]?.forEach { out.add(it.name) }
+        for (f in p.folders) {
+            for (photo in all) if (photo.folder == f || (f.isNotEmpty() && photo.folder.startsWith("$f/"))) out.add(photo.name)
+        }
         val known = all.mapTo(HashSet()) { it.name }
         for (n in p.photos) if (n in known) out.add(n)
         return out.toList()

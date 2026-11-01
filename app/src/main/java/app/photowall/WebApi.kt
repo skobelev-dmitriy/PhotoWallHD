@@ -62,10 +62,18 @@ class WebApi(private val ctx: Context) {
     private fun state(): Response {
         val photos = store.list()
         val arr = JSONArray()
-        for (p in photos) arr.put(JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified).put("live", store.hasLive(p)))
+        var dimBudget = 80 // read at most this many unknown image sizes per request; the page asks again every few seconds
+        for (p in photos) {
+            val o = JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified).put("live", store.hasLive(p))
+            store.dims(p, dimBudget > 0)?.let { o.put("w", it[0]).put("h", it[1]) } ?: run { dimBudget-- }
+            arr.put(o)
+        }
         val folderArr = JSONArray()
         val counts = photos.groupingBy { it.folder }.eachCount()
-        for (f in store.folders()) folderArr.put(JSONObject().put("name", f).put("count", counts[f] ?: 0))
+        for (f in store.folders()) {
+            val total = counts.entries.sumOf { (k, v) -> if (k == f || k.startsWith("$f/")) v else 0 }
+            folderArr.put(JSONObject().put("name", f).put("count", counts[f] ?: 0).put("total", total))
+        }
         val plArr = JSONArray()
         for (p in playlists.all()) plArr.put(playlists.toJson(p).put("count", playlists.resolve(photos, p).size))
         val obj = JSONObject()
@@ -105,7 +113,11 @@ class WebApi(private val ctx: Context) {
 
     private fun thumb(name: String, size: String?): Response {
         val photo = store.find(name) ?: return Response.error(404, "no such photo")
-        val side = if (size == "960") 960 else 480
+        val side = when (size) {
+            "1920" -> 1920
+            "960" -> 960
+            else -> 480
+        }
         val f = store.thumb(photo, side) ?: return Response.error(415, "cannot decode")
         return Response(200, "image/jpeg", file = f, headers = mapOf("Cache-Control" to "public, max-age=86400"))
     }
@@ -219,12 +231,19 @@ class WebApi(private val ctx: Context) {
     private fun folders(req: Request): Response {
         val j = readJson(req)
         val name = j.optString("name")
+        val result = JSONObject().put("ok", true)
         try {
             when (j.optString("action")) {
-                "create" -> store.createFolder(name)
+                "create" -> result.put("path", store.createFolder(name))
                 "rename" -> {
                     val to = store.renameFolder(name, j.optString("to"))
                     playlists.renameFolder(name, to)
+                    result.put("path", to)
+                }
+                "move" -> {
+                    val to = store.moveFolder(name, j.optString("to"))
+                    playlists.renameFolder(name, to)
+                    result.put("path", to)
                 }
                 "delete" -> {
                     store.deleteFolder(name, j.optBoolean("deletePhotos", false))
@@ -235,7 +254,7 @@ class WebApi(private val ctx: Context) {
         } catch (e: IllegalArgumentException) {
             return Response.error(400, e.message ?: "bad request")
         }
-        return Response.json(JSONObject().put("ok", true))
+        return Response.json(result)
     }
 
     private fun move(req: Request): Response {
@@ -252,7 +271,9 @@ class WebApi(private val ctx: Context) {
         when (j.optString("action")) {
             "save" -> {
                 val body = j.optJSONObject("playlist") ?: return Response.error(400, "playlist required")
-                return Response.json(playlists.toJson(playlists.save(playlists.fromJson(body))))
+                val known = store.folders().toSet()
+                val p = playlists.fromJson(body)
+                return Response.json(playlists.toJson(playlists.save(p.copy(folders = p.folders.filter { it.isEmpty() || it in known }))))
             }
             "delete" -> playlists.delete(j.optString("id"))
             "play" -> {

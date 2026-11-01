@@ -43,7 +43,7 @@
   .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 24px; }
   label.f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--dim); }
   label.f.inline { flex-direction: row; align-items: center; gap: 10px; color: var(--text); }
-  select, input[type=time], input[type=password], input[type=text] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  select, input[type=time], input[type=password], input[type=text], input[type=search] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .muted { color: var(--dim); font-size: 14px; }
@@ -63,6 +63,48 @@
   .layer .h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .layer .note { color: var(--dim); font-size: 13px; margin: 2px 0 4px 28px; }
   .pics { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; } .pics img { max-width: 100%; flex: 1 1 280px; min-width: 0; border-radius: 8px; background: #0c0e14; }
+  [hidden] { display: none !important; }
+  .lib { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+  @media (max-width: 880px) { .lib { grid-template-columns: 1fr; } .side { position: static !important; max-height: none !important; } }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; }
+  .side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin: 12px 6px 6px; display: flex; justify-content: space-between; align-items: center; }
+  .side h3:first-child { margin-top: 4px; }
+  .mini { background: var(--line); color: var(--text); border: 0; border-radius: 8px; padding: 2px 9px; cursor: pointer; font-size: 15px; line-height: 1.3; }
+  .node { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-radius: 8px; cursor: pointer; font-size: 14px; white-space: nowrap; user-select: none; }
+  .node:hover { background: #232a3d; } .node.on { background: var(--accent); } .node.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .node .tg { width: 16px; text-align: center; color: var(--dim); flex: none; } .node.on .tg { color: #fff; }
+  .node .nm { overflow: hidden; text-overflow: ellipsis; flex: 1; } .node .ct { color: var(--dim); font-size: 12px; flex: none; } .node.on .ct { color: #dbe6ff; }
+  .plr { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); margin: 6px 0; }
+  .plr.on { border-color: #2f7a52; background: #17261f; }
+  .plr .info { flex: 1; min-width: 0; } .plr b { font-size: 14px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plr .s { color: var(--dim); font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plr button { padding: 4px 9px; border-radius: 8px; font-size: 13px; }
+  .content { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; position: relative; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .bar select, .bar input[type=search] { padding: 6px 8px; font-size: 14px; } .bar button { padding: 7px 12px; font-size: 14px; }
+  .crumb { font-size: 17px; } .selbar { background: #17203a; border: 1px solid #2b3d6b; border-radius: 10px; padding: 6px 8px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(var(--ts, 150px), 1fr)); gap: 8px; margin-top: 4px; }
+  .tile { aspect-ratio: auto; overflow: visible; background: transparent; padding: 4px; border-radius: 10px; border: 2px solid transparent; position: relative; }
+  .tile:hover { background: #20263a; } .tile.sel { border-color: var(--accent); background: #1b2848; }
+  .tile .im { position: relative; aspect-ratio: 4 / 3; background: #0c0e14; border-radius: 6px; overflow: hidden; }
+  .tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .tile .nm { font-size: 12px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .mt { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .chk { position: absolute; left: 6px; top: 6px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.55); border: 2px solid #fff; display: none; }
+  .tile.sel .chk { display: block; background: var(--accent); }
+  .tile .eye { position: absolute; right: 6px; top: 6px; background: rgba(0,0,0,.6); color: #fff; border: 0; border-radius: 8px; padding: 1px 6px; font-size: 13px; opacity: 0; cursor: pointer; }
+  .tile:hover .eye { opacity: 1; } @media (hover: none) { .tile .eye { opacity: 1; } }
+  .tile .live { right: auto; left: 6px; bottom: 6px; top: auto; }
+  .statusbar { margin-top: 10px; font-size: 13px; color: var(--dim); }
+  .veil { position: absolute; inset: 0; border: 3px dashed var(--accent); border-radius: 14px; background: #1a2340cc; display: flex; align-items: center; justify-content: center; font-size: 20px; pointer-events: none; z-index: 5; }
+  .qbox { position: fixed; right: 12px; bottom: 12px; width: min(380px, calc(100% - 24px)); max-height: 40vh; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; z-index: 20; }
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: min(640px, calc(100% - 24px)); }
+  dialog::backdrop { background: #000b; }
+  #viewer { width: min(1400px, 96vw); max-width: none; padding: 10px; }
+  #viewer img { width: 100%; max-height: 82vh; object-fit: contain; display: block; background: #0c0e14; border-radius: 8px; }
+  #viewer .vh { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  #viewer a { color: var(--accent); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #000c; padding: 8px 16px; border-radius: 99px; opacity: 0; transition: .25s; pointer-events: none; }
   #toast.show { opacity: 1; }
 </style>
@@ -71,9 +113,10 @@
 <main>
   <h1>🖼 PhotoWall HD <span class="chip" id="status">…</span></h1>
 
+  <div class="two">
   <div class="card">
     <h2 data-t="now">Сейчас на экране</h2>
-    <div id="nowBox" style="aspect-ratio:16/9;background:#0c0e14;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+    <div id="nowBox" style="aspect-ratio:16/9;max-width:440px;background:#0c0e14;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden">
       <img id="nowImg" alt="" hidden style="width:100%;height:100%;object-fit:contain">
       <span id="nowTxt" class="muted"></span>
     </div>
@@ -89,6 +132,52 @@
       <button onclick="ctl('start')" data-t="startShow">Запустить показ на проекторе</button>
     </div>
   </div>
+  </div>
+
+  <section class="lib">
+    <aside class="side">
+      <h3><span data-t="folders">Папки</span><button class="mini" id="newTopFolder" title="＋">＋</button></h3>
+      <div id="tree"></div>
+      <h3><span data-t="playlists">Плейлисты</span><button class="mini" onclick="editPlaylist(null)" title="＋">＋</button></h3>
+      <div id="plSide"></div>
+      <label class="f inline" style="margin: 8px 6px 4px; font-size: 13px"><input type="checkbox" id="plSched"><span data-t="bySchedule">Переключать плейлисты по расписанию</span></label>
+      <div class="muted" style="margin: 0 6px 4px; font-size: 12px" data-t="plHint">Плейлист — набор папок и отдельных фото.</div>
+    </aside>
+
+    <div class="content" id="content">
+      <div class="bar">
+        <b class="crumb" id="crumb"></b><span class="muted" id="count"></span>
+        <span style="flex:1"></span>
+        <button class="ghost" onclick="$('#file').click()" data-t="upPhotos">⬆ Фото</button>
+        <button class="ghost" onclick="$('#dirInput').click()" data-t="pickFolder">📁 Папку целиком</button>
+      </div>
+      <div class="bar" id="folderTools" hidden>
+        <button class="ghost" id="ftSub" onclick="newFolder(curFolder)" data-t="newSubfolder">＋ Подпапка</button>
+        <button class="ghost" id="ftRename" onclick="renameFolder()" data-t="renameFolder">Переименовать</button>
+        <button class="ghost" onclick="playlistFromFolder()" data-t="plFromFolder">▶ Плейлист из этой папки</button>
+        <button class="danger" id="ftDelete" onclick="deleteFolder()" data-t="deleteFolder">Удалить папку</button>
+      </div>
+      <div class="bar">
+        <input type="search" id="filter" placeholder="Поиск по имени" data-tp="filterPh">
+        <select id="sort"></select>
+        <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px"><span data-t="thumbSize">Размер</span><input type="range" id="tsize" min="90" max="320" step="10" style="width:110px"></label>
+        <button class="ghost" id="selAll" data-t="selectAll">Выбрать все</button>
+      </div>
+      <div class="bar selbar" id="selBar" hidden>
+        <b id="selInfo"></b>
+        <select id="moveSel"></select>
+        <select id="plSel"></select>
+        <button class="ghost" id="liveBtn" onclick="openLive([...selected][0])" disabled data-t="liveBtn">✨ Оживить</button>
+        <button class="danger" id="delBtn" data-t="delete">Удалить</button>
+        <button class="ghost" id="clearSel" data-t="clearSel">Снять выбор</button>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="statusbar" id="statusbar"></div>
+      <div class="veil" id="veil" hidden><span><span data-t="dropTo">Отпустите, чтобы загрузить в</span> «<span id="veilTo"></span>»</span></div>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+      <input id="dirInput" type="file" webkitdirectory multiple hidden>
+    </div>
+  </section>
 
   <div class="card">
     <h2 data-t="disco">Дискотека</h2>
@@ -130,38 +219,6 @@
     <p class="muted" data-t="dWarn">Внимание: мигающий свет может быть опасен при светочувствительной эпилепсии. Для безопасности вспышки слабые, их можно отключить.</p>
   </div>
 
-  <div class="card">
-    <div class="row" style="justify-content: space-between">
-      <h2 style="margin:0"><span data-t="photos">Фотографии</span> <span id="count"></span></h2>
-      <div class="muted" id="space"></div>
-    </div>
-    <div class="chips" id="folderBar"></div>
-    <div class="row" id="folderTools" hidden>
-      <button class="ghost" onclick="renameFolder()" data-t="renameFolder">Переименовать папку</button>
-      <button class="ghost" onclick="playlistFromFolder()" data-t="plFromFolder">▶ Плейлист из этой папки</button>
-      <button class="danger" onclick="deleteFolder()" data-t="deleteFolder">Удалить папку</button>
-    </div>
-
-    <h2 style="margin-top:16px"><span data-t="upload">Загрузить фото</span> → <span id="upTarget"></span></h2>
-    <div class="drop" id="drop">
-      <div>📷 <b data-t="dropHint">Перетащите фото или целую папку сюда, либо нажмите, чтобы выбрать фото</b></div>
-      <div class="muted" data-t="dropSub">JPG, PNG, WebP — до 4K и больше, оригиналы сжимать не нужно</div>
-    </div>
-    <input id="file" type="file" accept="image/*" multiple hidden>
-    <input id="dirInput" type="file" webkitdirectory multiple hidden>
-    <div class="row"><button class="ghost" onclick="$('#dirInput').click()" data-t="pickFolder">📁 Загрузить папку целиком</button></div>
-    <div id="queue"></div>
-
-    <div class="row toolbar" style="margin-top:16px">
-      <button class="ghost" id="selAll" onclick="selectAll()" data-t="selectAll">Выбрать все</button>
-      <select id="moveSel"></select>
-      <select id="plSel"></select>
-      <button class="ghost" id="liveBtn" onclick="openLive([...selected][0])" disabled data-t="liveBtn">✨ Оживить</button>
-      <button class="danger" id="delBtn" onclick="deleteSelected()" disabled data-t="delete">Удалить</button>
-    </div>
-    <div class="grid" id="grid"></div>
-  </div>
-
   <div class="card" id="liveCard" hidden>
     <h2>✨ <span data-t="liveTitle">Живое фото</span>: <span id="liveName" style="text-transform:none"></span></h2>
     <div class="row">
@@ -173,29 +230,6 @@
     <div class="pics" id="livePics" hidden><img id="liveOverlay" alt=""><img id="livePreview" alt=""></div>
     <div id="liveLayers"></div>
     <div class="row" id="liveSaveRow" hidden><button onclick="liveSave()" data-t="save">Сохранить</button></div>
-  </div>
-
-  <div class="card">
-    <h2 data-t="playlists">Плейлисты</h2>
-    <div class="muted" data-t="plHint">Плейлист — набор папок и отдельных фото. «Играть» запускает его сразу; с галочкой ниже плейлисты сами включаются в свои часы (например, утренний и вечерний).</div>
-    <label class="f inline" style="margin-top:10px"><input type="checkbox" id="plSched"><span data-t="bySchedule">Переключать плейлисты по расписанию</span></label>
-    <div id="plList"></div>
-    <div class="row"><button class="ghost" onclick="editPlaylist(null)" data-t="newPlaylist">+ Новый плейлист</button></div>
-    <div class="editor" id="plEditor" hidden>
-      <label class="f"><span data-t="plName">Название</span><input type="text" id="plName" maxlength="60"></label>
-      <div class="muted" style="margin-top:10px" data-t="plFolders">Папки в плейлисте</div>
-      <div class="checks" id="plFolders"></div>
-      <div class="muted" id="plPhotosInfo"></div>
-      <label class="f inline" style="margin-top:10px"><input type="checkbox" id="plSchedOn"><span data-t="plSchedule">Играть в определённые часы</span></label>
-      <div class="row">
-        <label class="f" style="flex:0 0 140px"><span data-t="plFrom">С</span><input type="time" id="plFrom"></label>
-        <label class="f" style="flex:0 0 140px"><span data-t="plTo">До</span><input type="time" id="plTo"></label>
-      </div>
-      <div class="row">
-        <button onclick="savePlaylist()" data-t="save">Сохранить</button>
-        <button class="ghost" onclick="$('#plEditor').hidden = true" data-t="cancel">Отмена</button>
-      </div>
-    </div>
   </div>
 
   <div class="card">
@@ -260,6 +294,33 @@
     </div>
   </div>
 </main>
+<dialog id="viewer">
+  <div class="vh"><b id="vName"></b>
+    <span class="row" style="margin:0">
+      <button class="ghost" id="vPrev">◀</button><button class="ghost" id="vNext">▶</button>
+      <a id="vOrig" target="_blank" data-t="viewerOrig">Оригинал</a>
+      <button class="ghost" id="vClose">✕</button>
+    </span></div>
+  <img id="vImg" alt="">
+</dialog>
+
+<dialog id="plDlg">
+  <label class="f"><span data-t="plName">Название</span><input type="text" id="plName" maxlength="60"></label>
+  <div class="muted" style="margin-top:10px" data-t="plFolders">Папки в плейлисте (вместе с подпапками)</div>
+  <div class="checks" id="plFolders" style="max-height:260px;overflow:auto"></div>
+  <div class="muted" id="plPhotosInfo"></div>
+  <label class="f inline" style="margin-top:10px"><input type="checkbox" id="plSchedOn"><span data-t="plSchedule">Играть в определённые часы</span></label>
+  <div class="row">
+    <label class="f" style="flex:0 0 140px"><span data-t="plFrom">С</span><input type="time" id="plFrom"></label>
+    <label class="f" style="flex:0 0 140px"><span data-t="plTo">До</span><input type="time" id="plTo"></label>
+  </div>
+  <div class="row">
+    <button onclick="savePlaylist()" data-t="save">Сохранить</button>
+    <button class="ghost" onclick="$('#plDlg').close()" data-t="cancel">Отмена</button>
+  </div>
+</dialog>
+
+<div class="qbox" id="queueBox" hidden><div id="queue"></div></div>
 <div id="toast"></div>
 
 <script>
@@ -267,14 +328,19 @@ const $ = s => document.querySelector(s);
 const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 const T = {
   en: {
+    folders: 'Folders', upPhotos: '⬆ Photos', pickFolder: '📁 Upload a whole folder', newSubfolder: '＋ Subfolder', renameFolder: 'Rename', deleteFolder: 'Delete folder',
+    plFromFolder: '▶ Playlist from this folder', filterPh: 'Search by name', thumbSize: 'Size', dropTo: 'Drop to upload into', viewerOrig: 'Original',
+    plFolders: 'Folders in the playlist (with their sub-folders)', plHint: 'A playlist is a set of folders and single photos.',
+    sortDateDesc: 'Newest first', sortDateAsc: 'Oldest first', sortNameAsc: 'Name A–Z', sortNameDesc: 'Name Z–A', sortSizeDesc: 'Largest first',
+    selectedN: 'selected', visibleN: 'shown', folderMoveFail: 'Cannot move', created: 'Opened folder', subFolderPrompt: 'Subfolder name', renamePrompt: 'New name',
     liveBtn: '✨ Animate', liveTitle: 'Living photo', liveAnalyze: 'Find regions and suggest effects', liveRemove: 'Remove animation', close: 'Close',
     liveNone: 'No animation yet. Press the button: the vision service will find water, foliage, sky and people and suggest effects.', liveLayers: 'regions', liveBusy: 'Analyzing… (up to a minute)',
     liveSettings: 'Living photos', liveOn: 'Show gentle motion (water, foliage, sky)', liveStrength: 'Motion strength', visionUrl: 'Vision service address (e.g. http://192.168.1.10:8090)',
     liveHint: 'The preview shows the recommended motion exaggerated x3; on the projector it is much subtler.', liveFail: 'Analysis failed', liveDelConfirm: 'Remove the animation of this photo?', liveSaved: 'Saved',
-    allPhotos: 'All photos', noFolder: 'No folder', newFolder: 'Folder', renameFolder: 'Rename folder', deleteFolder: 'Delete folder',
-    plFromFolder: '▶ Playlist from this folder', pickFolder: '📁 Upload a whole folder', moveTo: 'Move to…', toPlaylist: 'Add to playlist…', newFolderEllipsis: 'New folder…', newPlaylistEllipsis: 'New playlist…',
-    playlists: 'Playlists', plHint: 'A playlist is a set of folders and single photos. "Play" starts it now; with the box below, playlists switch on by themselves in their hours (e.g. a morning and an evening one).',
-    bySchedule: 'Switch playlists by schedule', newPlaylist: '+ New playlist', plName: 'Name', plFolders: 'Folders in the playlist', plSchedule: 'Play at certain hours', plFrom: 'From', plTo: 'To',
+    allPhotos: 'All photos', noFolder: 'No folder', newFolder: 'Folder',
+    moveTo: 'Move to…', toPlaylist: 'Add to playlist…', newFolderEllipsis: 'New folder…', newPlaylistEllipsis: 'New playlist…',
+    playlists: 'Playlists',
+    bySchedule: 'Switch playlists by schedule', newPlaylist: '+ New playlist', plName: 'Name', plSchedule: 'Play at certain hours', plFrom: 'From', plTo: 'To',
     save: 'Save', cancel: 'Cancel', play: '▶ Play', edit: 'Edit', nowPlaying: 'playing', onDemand: 'on demand', singlePhotos: 'single photos', photosWord: 'photos', clearSingles: 'Remove single photos',
     uploadTo: 'to', folderPrompt: 'Folder name', playlistPrompt: 'Playlist name', delFolderAll: 'Delete the folder together with its photos?', delFolderKeep: 'Delete only the folder and keep the photos (they move out of the folder)?', plDelete: 'Delete this playlist?', allPhotosRow: 'All photos (no playlist)',
     dropHint: 'Drop photos or a whole folder here, or tap to pick photos',
@@ -298,13 +364,18 @@ const T = {
     s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
   },
   ru: {
+    folders: 'Папки', upPhotos: '⬆ Фото', pickFolder: '📁 Папку целиком', newSubfolder: '＋ Подпапка', renameFolder: 'Переименовать', deleteFolder: 'Удалить папку',
+    plFromFolder: '▶ Плейлист из этой папки', filterPh: 'Поиск по имени', thumbSize: 'Размер', dropTo: 'Отпустите, чтобы загрузить в', viewerOrig: 'Оригинал',
+    plFolders: 'Папки в плейлисте (вместе с подпапками)', plHint: 'Плейлист — набор папок и отдельных фото.',
+    sortDateDesc: 'Новые сначала', sortDateAsc: 'Старые сначала', sortNameAsc: 'Имя А–Я', sortNameDesc: 'Имя Я–А', sortSizeDesc: 'Крупные сначала',
+    selectedN: 'выбрано', visibleN: 'показано', folderMoveFail: 'Не удалось переместить', created: 'Открыта папка', subFolderPrompt: 'Название подпапки', renamePrompt: 'Новое название',
     liveBtn: '✨ Оживить', liveTitle: 'Живое фото', liveAnalyze: 'Найти области и предложить эффекты', liveRemove: 'Убрать анимацию', close: 'Закрыть',
     liveNone: 'Анимации пока нет. Нажмите кнопку: сервис распознавания найдёт воду, листву, небо, людей и предложит эффекты.', liveLayers: 'областей', liveBusy: 'Анализирую… (до минуты)',
     liveSettings: 'Живые фото', liveOn: 'Показывать лёгкое движение (вода, листва, небо)', liveStrength: 'Сила движения', visionUrl: 'Адрес сервиса распознавания (например, http://192.168.1.10:8090)',
     liveHint: 'Предпросмотр показывает рекомендуемое движение, усиленное в 3 раза; на проекторе оно гораздо тоньше.', liveFail: 'Не удалось проанализировать', liveDelConfirm: 'Убрать анимацию этого фото?', liveSaved: 'Сохранено',
-    allPhotos: 'Все фото', noFolder: 'Без папки', newFolder: 'Папка', renameFolder: 'Переименовать папку', deleteFolder: 'Удалить папку',
-    plFromFolder: '▶ Плейлист из этой папки', pickFolder: '📁 Загрузить папку целиком', moveTo: 'Переместить в…', toPlaylist: 'Добавить в плейлист…', newFolderEllipsis: 'Новая папка…', newPlaylistEllipsis: 'Новый плейлист…',
-    playlists: 'Плейлисты', plHint: 'Плейлист — набор папок и отдельных фото.', bySchedule: 'Переключать плейлисты по расписанию', newPlaylist: '+ Новый плейлист', plName: 'Название', plFolders: 'Папки в плейлисте', plSchedule: 'Играть в определённые часы', plFrom: 'С', plTo: 'До',
+    allPhotos: 'Все фото', noFolder: 'Без папки', newFolder: 'Папка',
+    moveTo: 'Переместить в…', toPlaylist: 'Добавить в плейлист…', newFolderEllipsis: 'Новая папка…', newPlaylistEllipsis: 'Новый плейлист…',
+    playlists: 'Плейлисты', bySchedule: 'Переключать плейлисты по расписанию', newPlaylist: '+ Новый плейлист', plName: 'Название', plSchedule: 'Играть в определённые часы', plFrom: 'С', plTo: 'До',
     save: 'Сохранить', cancel: 'Отмена', play: '▶ Играть', edit: 'Изменить', nowPlaying: 'играет', onDemand: 'по запросу', singlePhotos: 'отдельных фото', photosWord: 'фото', clearSingles: 'Убрать отдельные фото',
     uploadTo: 'в', folderPrompt: 'Название папки', playlistPrompt: 'Название плейлиста', delFolderAll: 'Удалить папку вместе с фотографиями?', delFolderKeep: 'Удалить только папку, а фото оставить (они переедут в «Без папки»)?', plDelete: 'Удалить этот плейлист?', allPhotosRow: 'Все фото (без плейлиста)',
     dropHint: 'Перетащите фото или целую папку сюда, либо нажмите, чтобы выбрать фото',
@@ -355,11 +426,15 @@ const pad = n => String(n).padStart(2, '0');
 async function load(quiet) {
   const r = await api('/api/state');
   const next = await r.json();
-  const sig = x => x.photos.map(p => p.name + p.modified + (p.live ? 'L' : '')).join('|') + JSON.stringify(x.playlists) + JSON.stringify(x.folders) + x.effectivePlaylist;
+  const sig = x => x.photos.map(p => p.name + p.modified + (p.live ? 'L' : '') + (p.w ? 'D' : '')).join('|') + JSON.stringify(x.playlists) + JSON.stringify(x.folders) + x.effectivePlaylist;
   const changed = !state || sig(state) !== sig(next);
   state = next;
   renderStatus();
-  if (!quiet || changed) { renderGrid(); renderPlaylists(); }
+  if (!quiet || changed) renderGrid();
+  else refreshSel();
+  if (!quiet) dimRetries = 0;
+  // image sizes are read a few dozen at a time on the projector; ask again soon until all are known
+  if (state.photos.some(p => !p.w) && dimRetries++ < 40) setTimeout(() => load(true).catch(() => {}), 1500);
   if (!quiet) renderSettings();
 }
 
@@ -369,58 +444,161 @@ function renderStatus() {
   chip.classList.toggle('on', state.active);
 }
 
-// ---- folders, grid, selection ----
-let curFolder = '*';   // '*' = all photos, '' = photos outside folders, otherwise a folder name
+// ---- library: folder tree, thumbnails, selection, viewer, playlists ----
+let curFolder = '*';   // '*' = all photos, '' = photos outside folders, otherwise a folder path like "Trip/day1"
+let sortKey = localStorage.getItem('pw_sort') || 'date-desc';
+let thumbSize = parseInt(localStorage.getItem('pw_ts') || '150', 10);
+let filterText = '';
+let lastIdx = -1;
+let dragNames = null, dragFolder = null;
+let shown = [];        // the photos currently in the grid, in display order
+let dimRetries = 0;
+const expanded = new Set(JSON.parse(localStorage.getItem('pw_exp') || '[]'));
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
 const isImg = f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif|heic|heif)$/i.test(f.name);
-const uploadFolder = () => (curFolder === '*' ? '' : curFolder);
-const visiblePhotos = () => state.photos.filter(p => curFolder === '*' || p.folder === curFolder);
-const folderLabel = f => (f === '*' ? t('allPhotos') : f === '' ? t('noFolder') : f);
+const baseName = p => p.slice(p.lastIndexOf('/') + 1);
+const parentOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+const joinPath = (a, b) => (a ? a + '/' + b : b);
+const depthOf = p => (p ? p.split('/').length - 1 : 0);
+const encName = n => encodeURIComponent(n);
+const uploadBase = () => (curFolder === '*' ? '' : curFolder);
+const folderTitle = f => (f === '*' ? t('allPhotos') : f === '' ? t('noFolder') : f.split('/').join(' › '));
+const isRealFolder = f => f !== '*' && f !== '';
 
-function renderFolders() {
-  if (curFolder !== '*' && curFolder !== '' && !state.folders.some(f => f.name === curFolder)) curFolder = '*';
-  const bar = $('#folderBar'); bar.innerHTML = '';
-  const chip = (key, label, count) => {
-    const b = document.createElement('button');
-    b.className = 'chip2' + (curFolder === key ? ' on' : '');
-    b.textContent = label + (count != null ? ' (' + count + ')' : '');
-    b.onclick = () => { curFolder = key; selected.clear(); renderFolders(); renderGrid(); };
-    bar.appendChild(b);
+function visiblePhotos() {
+  const q = filterText.trim().toLowerCase();
+  const list = state.photos.filter(p => (curFolder === '*' || p.folder === curFolder) && (!q || p.name.toLowerCase().includes(q)));
+  const byName = (a, b) => baseName(a.name).localeCompare(baseName(b.name), undefined, { numeric: true, sensitivity: 'base' });
+  const cmp = {
+    'date-desc': (a, b) => b.modified - a.modified, 'date-asc': (a, b) => a.modified - b.modified,
+    'name-asc': byName, 'name-desc': (a, b) => byName(b, a), 'size-desc': (a, b) => b.size - a.size,
+  }[sortKey] || ((a, b) => b.modified - a.modified);
+  return list.sort(cmp);
+}
+
+function selectFolder(key) {
+  curFolder = key; selected.clear(); lastIdx = -1;
+  for (let p = parentOf(key); p; p = parentOf(p)) expanded.add(p);
+  localStorage.setItem('pw_exp', JSON.stringify([...expanded]));
+  renderGrid();
+}
+
+// ---- tree ----
+function renderTree() {
+  if (isRealFolder(curFolder) && !state.folders.some(f => f.name === curFolder)) curFolder = '*';
+  const box = $('#tree'); box.innerHTML = '';
+  const kids = {};
+  state.folders.forEach(f => { (kids[parentOf(f.name)] = kids[parentOf(f.name)] || []).push(f); });
+  const node = (key, icon, label, count, depth, hasKids, isFolder) => {
+    const el = document.createElement('div');
+    el.className = 'node' + (curFolder === key ? ' on' : '');
+    el.style.paddingLeft = (6 + depth * 14) + 'px';
+    el.title = key === '*' || key === '' ? label : key;
+    const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = hasKids ? (expanded.has(key) ? '▾' : '▸') : '';
+    tg.onclick = e => {
+      e.stopPropagation();
+      expanded.has(key) ? expanded.delete(key) : expanded.add(key);
+      localStorage.setItem('pw_exp', JSON.stringify([...expanded])); renderTree();
+    };
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = icon + ' ' + label;
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = count;
+    el.append(tg, nm, ct);
+    el.onclick = () => selectFolder(key);
+    if (key !== '*') {   // drop photos or folders onto a folder to move them
+      el.ondragover = e => { if (dragNames || dragFolder !== null) { e.preventDefault(); el.classList.add('drop'); } };
+      el.ondragleave = () => el.classList.remove('drop');
+      el.ondrop = e => { e.preventDefault(); el.classList.remove('drop'); dropOnFolder(key); };
+    }
+    if (isFolder) {
+      el.draggable = true;
+      el.ondragstart = e => { dragFolder = key; e.dataTransfer.setData('text/plain', 'folder'); e.dataTransfer.effectAllowed = 'move'; };
+      el.ondragend = () => { dragFolder = null; };
+    }
+    box.appendChild(el);
   };
-  chip('*', t('allPhotos'), state.photos.length);
-  chip('', t('noFolder'), state.rootCount);
-  state.folders.forEach(f => chip(f.name, f.name, f.count));
-  const add = document.createElement('button');
-  add.className = 'chip2 add'; add.textContent = '+ ' + t('newFolder'); add.onclick = newFolder;
-  bar.appendChild(add);
-  $('#folderTools').hidden = curFolder === '*' || curFolder === '';
-  $('#upTarget').textContent = folderLabel(curFolder === '*' ? '' : curFolder);
+  node('*', '🖼', t('allPhotos'), state.photos.length, 0, false, false);
+  node('', '📄', t('noFolder'), state.rootCount, 0, false, false);
+  const add = (parent, depth) => (kids[parent] || []).forEach(f => {
+    const has = !!kids[f.name];
+    node(f.name, '📁', baseName(f.name), f.count + (f.total > f.count ? ' (' + f.total + ')' : ''), depth, has, true);
+    if (has && expanded.has(f.name)) add(f.name, depth + 1);
+  });
+  add('', 0);
+}
+
+async function dropOnFolder(key) {
+  if (dragFolder !== null) { const f = dragFolder; dragFolder = null; await moveFolderTo(f, key); }
+  else if (dragNames) { const n = dragNames; dragNames = null; await moveNames(n, key); }
+}
+async function moveNames(names, folder) {
+  await post('/api/move', { names, folder });
+  selected.clear(); await load();
+}
+async function moveFolderTo(path, destParent) {
+  const r = await post('/api/folders', { action: 'move', name: path, to: destParent });
+  const j = await r.json();
+  if (!r.ok) { toast(t('folderMoveFail') + ': ' + (j.error || r.status)); return; }
+  if (curFolder === path || curFolder.startsWith(path + '/')) curFolder = j.path + curFolder.slice(path.length);
+  await load();
+}
+
+// ---- grid ----
+function metaText(p) {
+  const ext = (p.name.split('.').pop() || '').toUpperCase();
+  return (p.w && p.h ? p.w + '×' + p.h + ' · ' : '') + ext + ' · ' + fmtBytes(p.size);
+}
+function makeTile(p, i, list) {
+  const tile = document.createElement('div');
+  tile.className = 'tile'; tile.dataset.name = p.name; tile.draggable = true;
+  tile.title = p.name;
+  tile.innerHTML = '<div class="im"><img loading="lazy" alt="" draggable="false"><i class="chk"></i><button class="eye" title="👁">👁</button></div><div class="nm"></div><div class="mt"></div>';
+  tile.querySelector('img').src = '/api/thumb/' + encName(p.name) + '?v=' + p.modified + '&pin=' + encodeURIComponent(PIN);
+  tile.querySelector('.nm').textContent = baseName(p.name);
+  tile.querySelector('.mt').textContent = metaText(p);
+  if (p.live) { const b = document.createElement('div'); b.className = 'live'; b.textContent = '✨'; b.style.cssText = 'position:absolute;background:rgba(0,0,0,.6);border-radius:8px;padding:0 5px;font-size:13px'; tile.querySelector('.im').appendChild(b); }
+  tile.onclick = e => clickTile(e, p, i, list);
+  tile.ondblclick = () => openViewer(list, i);
+  tile.ondragstart = e => {
+    if (!selected.has(p.name)) { selected.clear(); selected.add(p.name); refreshSel(); }
+    dragNames = [...selected]; e.dataTransfer.setData('text/plain', 'photos'); e.dataTransfer.effectAllowed = 'move';
+  };
+  tile.ondragend = () => { dragNames = null; };
+  return tile;
+}
+function clickTile(e, p, i, list) {
+  if (e.target.closest('.eye')) { openViewer(list, i); return; }
+  if (e.shiftKey && lastIdx >= 0) {
+    const a = Math.min(lastIdx, i), b = Math.max(lastIdx, i);
+    if (!(e.ctrlKey || e.metaKey)) selected.clear();
+    for (let k = a; k <= b; k++) selected.add(list[k].name);
+  } else if (e.ctrlKey || e.metaKey || coarse) {
+    selected.has(p.name) ? selected.delete(p.name) : selected.add(p.name); lastIdx = i;
+  } else { selected.clear(); selected.add(p.name); lastIdx = i; }
+  refreshSel();
 }
 
 function renderGrid() {
-  renderFolders();
+  renderTree(); renderPlaylistsSide(); renderBar();
   const grid = $('#grid');
+  grid.style.setProperty('--ts', thumbSize + 'px');
   const names = new Set(state.photos.map(p => p.name));
   for (const n of [...selected]) if (!names.has(n)) selected.delete(n);
+  shown = visiblePhotos();
   grid.innerHTML = '';
-  const list = visiblePhotos();
-  if (!list.length) { grid.innerHTML = '<div class="muted">' + t('noPhotos') + '</div>'; }
-  // newest first
-  for (const p of [...list].reverse()) {
-    const tile = document.createElement('div');
-    tile.className = 'tile' + (selected.has(p.name) ? ' sel' : '');
-    const url = encodeURIComponent(p.name);
-    tile.innerHTML = '<img loading="lazy" alt=""><i class="chk"></i><a target="_blank" title="open">↗</a><div class="cap"></div>';
-    tile.querySelector('img').src = '/api/thumb/' + url + '?v=' + p.modified + '&pin=' + encodeURIComponent(PIN);
-    tile.querySelector('a').href = '/photo/' + url + '?pin=' + encodeURIComponent(PIN);
-    tile.querySelector('a').onclick = e => e.stopPropagation();
-    tile.querySelector('.cap').textContent = p.name;
-    if (p.live) { const b = document.createElement('div'); b.className = 'live'; b.textContent = '✨'; tile.appendChild(b); }
-    tile.onclick = () => { selected.has(p.name) ? selected.delete(p.name) : selected.add(p.name); tile.classList.toggle('sel'); updateSel(); };
-    grid.appendChild(tile);
-  }
-  $('#count').textContent = '(' + state.photos.length + ')';
-  $('#space').textContent = fmtBytes(state.totalBytes) + ' · ' + t('free') + ' ' + fmtBytes(state.freeBytes) + ' · ' + state.url;
-  updateSel();
+  if (!shown.length) grid.innerHTML = '<div class="muted" style="padding:12px">' + t('noPhotos') + '</div>';
+  shown.forEach((p, i) => grid.appendChild(makeTile(p, i, shown)));
+  refreshSel();
+}
+$('#grid').addEventListener('click', e => { if (e.target.id === 'grid') { selected.clear(); refreshSel(); } });
+
+function renderBar() {
+  $('#crumb').textContent = folderTitle(curFolder);
+  const tools = $('#folderTools');
+  tools.hidden = curFolder === '*';
+  $('#ftSub').hidden = $('#ftRename').hidden = $('#ftDelete').hidden = !isRealFolder(curFolder);
+  // move targets: every folder, indented by depth
+  fillSelect($('#moveSel'), t('moveTo'), [['__root', t('noFolder')], ...state.folders.map(f => ['f:' + f.name, '— '.repeat(depthOf(f.name)) + baseName(f.name)]), ['__new', t('newFolderEllipsis')]]);
+  fillSelect($('#plSel'), t('toPlaylist'), [...state.playlists.map(p => ['p:' + p.id, p.name]), ['__new', t('newPlaylistEllipsis')]]);
 }
 
 function fillSelect(sel, placeholder, options) {
@@ -431,40 +609,50 @@ function fillSelect(sel, placeholder, options) {
   sel.value = '';
 }
 
-function updateSel() {
-  $('#delBtn').disabled = selected.size === 0;
-  $('#delBtn').textContent = selected.size ? t('delete') + ' (' + selected.size + ')' : t('delete');
-  $('#selAll').textContent = selected.size ? t('clearSel') : t('selectAll');
-  const has = selected.size > 0;
-  $('#liveBtn').disabled = selected.size !== 1;
-  const move = $('#moveSel'), pl = $('#plSel');
-  move.disabled = pl.disabled = !has;
-  fillSelect(move, t('moveTo'), [['__root', t('noFolder')], ...state.folders.map(f => ['f:' + f.name, f.name]), ['__new', t('newFolderEllipsis')]]);
-  fillSelect(pl, t('toPlaylist'), [...state.playlists.map(p => ['p:' + p.id, p.name]), ['__new', t('newPlaylistEllipsis')]]);
+function refreshSel() {
+  document.querySelectorAll('#grid .tile').forEach(el => el.classList.toggle('sel', selected.has(el.dataset.name)));
+  const n = selected.size, has = n > 0;
+  $('#selBar').hidden = !has;
+  $('#liveBtn').disabled = n !== 1;
+  const sel = state.photos.filter(p => selected.has(p.name));
+  $('#selInfo').textContent = n + ' ' + t('selectedN') + ' · ' + fmtBytes(sel.reduce((s, p) => s + p.size, 0));
+  $('#selAll').textContent = n ? t('clearSel') : t('selectAll');
+  $('#count').textContent = '· ' + shown.length + (shown.length !== state.photos.length ? ' / ' + state.photos.length : '');
+  let info;
+  if (n === 1) {
+    const p = sel[0];
+    info = p.name + ' · ' + metaText(p) + ' · ' + new Date(p.modified).toLocaleString();
+  } else {
+    info = shown.length + ' ' + t('visibleN') + ' · ' + fmtBytes(shown.reduce((s, p) => s + p.size, 0)) + ' · ' + t('free') + ' ' + fmtBytes(state.freeBytes) + ' · ' + state.url;
+  }
+  $('#statusbar').textContent = info;
 }
+
 function selectAll() {
-  if (selected.size) selected.clear(); else visiblePhotos().forEach(p => selected.add(p.name));
-  renderGrid();
+  if (selected.size) selected.clear(); else shown.forEach(p => selected.add(p.name));
+  refreshSel();
 }
 async function deleteSelected() {
   if (!selected.size || !confirm(t('confirmDel') + selected.size + '?')) return;
   await post('/api/delete', { names: [...selected] });
   selected.clear(); await load();
 }
+$('#selAll').onclick = selectAll;
+$('#clearSel').onclick = () => { selected.clear(); refreshSel(); };
+$('#delBtn').onclick = deleteSelected;
 
 $('#moveSel').onchange = async e => {
   const v = e.target.value; if (!v || !selected.size) return;
   let folder = '';
-  if (v === '__new') { const n = prompt(t('folderPrompt')); if (!n) return updateSel(); folder = n; }
+  if (v === '__new') { const n = prompt(t('folderPrompt')); if (!n) { e.target.value = ''; return; } folder = joinPath(uploadBase(), n.trim()); }
   else if (v.startsWith('f:')) folder = v.slice(2);
-  await post('/api/move', { names: [...selected], folder });
-  selected.clear(); await load();
+  await moveNames([...selected], folder);
 };
 $('#plSel').onchange = async e => {
   const v = e.target.value; if (!v || !selected.size) return;
   let pl;
   if (v === '__new') {
-    const n = prompt(t('playlistPrompt')); if (!n) return updateSel();
+    const n = prompt(t('playlistPrompt')); if (!n) { e.target.value = ''; return; }
     pl = { id: '', name: n, folders: [], photos: [], scheduleEnabled: false, from: 480, to: 720 };
   } else pl = JSON.parse(JSON.stringify(state.playlists.find(p => 'p:' + p.id === v)));
   pl.photos = [...new Set([...pl.photos, ...selected])];
@@ -472,73 +660,117 @@ $('#plSel').onchange = async e => {
   toast(t('saved')); selected.clear(); await load();
 };
 
-async function newFolder() {
-  const n = prompt(t('folderPrompt')); if (!n) return;
-  await post('/api/folders', { action: 'create', name: n });
-  await load();
-  const made = state.folders.find(f => f.name.toLowerCase() === n.trim().toLowerCase());
-  if (made) { curFolder = made.name; renderGrid(); }
+// sort, filter, thumbnail size
+fillSelect($('#sort'), '', []);
+$('#sort').innerHTML = [['date-desc', 'sortDateDesc'], ['date-asc', 'sortDateAsc'], ['name-asc', 'sortNameAsc'], ['name-desc', 'sortNameDesc'], ['size-desc', 'sortSizeDesc']]
+  .map(([v, k]) => '<option value="' + v + '">' + t(k) + '</option>').join('');
+$('#sort').value = sortKey;
+$('#sort').onchange = e => { sortKey = e.target.value; localStorage.setItem('pw_sort', sortKey); renderGrid(); };
+$('#tsize').value = thumbSize;
+$('#tsize').oninput = e => { thumbSize = +e.target.value; localStorage.setItem('pw_ts', thumbSize); $('#grid').style.setProperty('--ts', thumbSize + 'px'); };
+let filterTimer;
+$('#filter').oninput = e => { clearTimeout(filterTimer); filterTimer = setTimeout(() => { filterText = e.target.value; renderGrid(); }, 150); };
+document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+
+// ---- folder actions ----
+async function newFolder(parent) {
+  const n = prompt(parent ? t('subFolderPrompt') : t('folderPrompt')); if (!n || !n.trim()) return;
+  const r = await post('/api/folders', { action: 'create', name: joinPath(parent, n.trim()) });
+  const j = await r.json();
+  if (!r.ok) { toast(j.error || t('failed')); return; }
+  if (parent) expanded.add(parent);
+  await load(); selectFolder(j.path);
 }
+$('#newTopFolder').onclick = () => newFolder('');
 async function renameFolder() {
-  const n = prompt(t('folderPrompt'), curFolder); if (!n || n === curFolder) return;
-  const r = await post('/api/folders', { action: 'rename', name: curFolder, to: n });
-  if (r.ok) curFolder = n; else toast((await r.json()).error || t('failed'));
-  await load();
+  const n = prompt(t('renamePrompt'), baseName(curFolder)); if (!n || n.trim() === baseName(curFolder)) return;
+  const r = await post('/api/folders', { action: 'rename', name: curFolder, to: n.trim() });
+  const j = await r.json();
+  if (!r.ok) { toast(j.error || t('failed')); return; }
+  curFolder = j.path; await load();
 }
 async function deleteFolder() {
   let keep = false;
   if (!confirm(t('delFolderAll'))) { if (!confirm(t('delFolderKeep'))) return; keep = true; }
-  await post('/api/folders', { action: 'delete', name: curFolder, deletePhotos: !keep });
-  curFolder = '*'; await load();
+  const gone = curFolder;
+  await post('/api/folders', { action: 'delete', name: gone, deletePhotos: !keep });
+  curFolder = parentOf(gone) || '*'; await load();
 }
 async function playlistFromFolder() {
-  await post('/api/playlists', { action: 'save', playlist: { id: '', name: curFolder, folders: [curFolder], photos: [], scheduleEnabled: false, from: 480, to: 720 } });
+  const name = curFolder === '' ? t('noFolder') : baseName(curFolder);
+  await post('/api/playlists', { action: 'save', playlist: { id: '', name, folders: [curFolder], photos: [], scheduleEnabled: false, from: 480, to: 720 } });
   toast(t('saved')); await load();
 }
 
-// ---- playlists ----
+// ---- viewer ----
+let vList = [], vIdx = 0;
+function showViewer() {
+  const p = vList[vIdx];
+  $('#vName').textContent = p.name + (p.w ? ' · ' + p.w + '×' + p.h : '') + '   (' + (vIdx + 1) + '/' + vList.length + ')';
+  $('#vImg').src = '/api/thumb/' + encName(p.name) + '?s=1920&v=' + p.modified + '&pin=' + encodeURIComponent(PIN);
+  $('#vOrig').href = '/photo/' + encName(p.name) + '?pin=' + encodeURIComponent(PIN);
+}
+function openViewer(list, i) { vList = list; vIdx = i; showViewer(); if (!$('#viewer').open) $('#viewer').showModal(); }
+const vStep = d => { if (vList.length) { vIdx = (vIdx + d + vList.length) % vList.length; showViewer(); } };
+$('#vPrev').onclick = () => vStep(-1);
+$('#vNext').onclick = () => vStep(1);
+$('#vClose').onclick = () => $('#viewer').close();
+$('#viewer').addEventListener('keydown', e => { if (e.key === 'ArrowLeft') vStep(-1); else if (e.key === 'ArrowRight') vStep(1); });
+$('#viewer').addEventListener('click', e => { if (e.target.id === 'viewer') $('#viewer').close(); });
+
+// ---- keyboard, like a file manager ----
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea, dialog')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); shown.forEach(p => selected.add(p.name)); refreshSel(); }
+  else if (e.key === 'Delete') deleteSelected();
+  else if (e.key === 'Escape') { selected.clear(); refreshSel(); }
+  else if (e.key === 'Enter' && selected.size === 1) { const i = shown.findIndex(p => selected.has(p.name)); if (i >= 0) openViewer(shown, i); }
+});
+
+// ---- playlists (sidebar + editor dialog) ----
 let editing = null;
 const hhmm = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
 const toMin = v => { const [h, m] = v.split(':').map(Number); return isNaN(h) ? 0 : h * 60 + m; };
 
-function renderPlaylists() {
-  const box = $('#plList'); box.innerHTML = '';
+function renderPlaylistsSide() {
+  const box = $('#plSide'); box.innerHTML = '';
   const row = (id, title, sub, p) => {
-    const el = document.createElement('div'); el.className = 'pl';
-    const info = document.createElement('div');
-    info.innerHTML = '<div class="t"></div><div class="s"></div>';
-    info.querySelector('.t').textContent = title;
-    if (state.effectivePlaylist === id) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = t('nowPlaying'); info.querySelector('.t').appendChild(b); }
-    info.querySelector('.s').textContent = sub;
-    const btns = document.createElement('div'); btns.className = 'row'; btns.style.margin = 0;
-    const mk = (label, cls, fn) => { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; btns.appendChild(b); };
-    mk(t('play'), '', async () => { await post('/api/playlists', { action: 'play', id }); toast(t('started')); setTimeout(load, 800); });
+    const el = document.createElement('div'); el.className = 'plr' + (state.effectivePlaylist === id ? ' on' : '');
+    const info = document.createElement('div'); info.className = 'info';
+    info.innerHTML = '<b></b><span class="s"></span>';
+    info.querySelector('b').textContent = title + (state.effectivePlaylist === id ? ' ▶' : '');
+    info.querySelector('.s').textContent = sub; info.title = title + ' — ' + sub;
+    const mk = (label, cls, tip, fn) => { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.title = tip; b.onclick = fn; return b; };
+    el.appendChild(info);
+    el.appendChild(mk('▶', '', t('play'), async () => { await post('/api/playlists', { action: 'play', id }); toast(t('started')); setTimeout(load, 800); }));
     if (p) {
-      mk(t('edit'), 'ghost', () => editPlaylist(p));
-      mk('🗑', 'danger', async () => { if (!confirm(t('plDelete'))) return; await post('/api/playlists', { action: 'delete', id }); await load(); });
+      el.appendChild(mk('✎', 'ghost', t('edit'), () => editPlaylist(p)));
+      el.appendChild(mk('🗑', 'danger', '', async () => { if (!confirm(t('plDelete'))) return; await post('/api/playlists', { action: 'delete', id }); await load(); }));
     }
-    el.appendChild(info); el.appendChild(btns); box.appendChild(el);
+    box.appendChild(el);
   };
   row('', t('allPhotosRow'), state.photos.length + ' ' + t('photosWord'), null);
   state.playlists.forEach(p => {
     const parts = [p.count + ' ' + t('photosWord')];
-    if (p.folders.length) parts.push(p.folders.map(f => f || t('noFolder')).join(', '));
-    if (p.photos.length) parts.push('+' + p.photos.length + ' ' + t('singlePhotos'));
+    if (p.folders.length) parts.push(p.folders.map(f => f === '' ? t('noFolder') : baseName(f)).join(', '));
+    if (p.photos.length) parts.push('+' + p.photos.length);
     parts.push(p.scheduleEnabled ? hhmm(p.from) + '–' + hhmm(p.to) : t('onDemand'));
     row(p.id, p.name, parts.join(' · '), p);
   });
   $('#plSched').checked = state.settings.playlistMode === 'schedule';
 }
+function renderPlaylists() { renderPlaylistsSide(); }
 $('#plSched').onchange = async e => { await post('/api/settings', { playlistMode: e.target.checked ? 'schedule' : 'manual' }); toast(t('saved')); };
 
 function editPlaylist(p) {
   editing = p ? JSON.parse(JSON.stringify(p)) : { id: '', name: '', folders: [], photos: [], scheduleEnabled: false, from: 480, to: 720 };
   $('#plName').value = editing.name;
   const box = $('#plFolders'); box.innerHTML = '';
-  [['', t('noFolder')], ...state.folders.map(f => [f.name, f.name])].forEach(([val, label]) => {
+  [['', t('noFolder'), 0], ...state.folders.map(f => [f.name, baseName(f.name), depthOf(f.name) + 1])].forEach(([val, label, d]) => {
     const l = document.createElement('label'); const c = document.createElement('input');
     c.type = 'checkbox'; c.value = val; c.checked = editing.folders.includes(val);
-    l.appendChild(c); l.appendChild(document.createTextNode(label)); box.appendChild(l);
+    l.style.paddingLeft = (d * 16) + 'px'; l.appendChild(c); l.appendChild(document.createTextNode((val === '' ? '📄 ' : '📁 ') + label));
+    box.appendChild(l);
   });
   const info = $('#plPhotosInfo'); info.textContent = '';
   if (editing.photos.length) {
@@ -549,8 +781,7 @@ function editPlaylist(p) {
   }
   $('#plSchedOn').checked = editing.scheduleEnabled;
   $('#plFrom').value = hhmm(editing.from); $('#plTo').value = hhmm(editing.to);
-  $('#plEditor').hidden = false;
-  $('#plEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  $('#plDlg').showModal();
 }
 async function savePlaylist() {
   editing.name = $('#plName').value.trim() || t('playlists');
@@ -558,7 +789,7 @@ async function savePlaylist() {
   editing.scheduleEnabled = $('#plSchedOn').checked;
   editing.from = toMin($('#plFrom').value); editing.to = toMin($('#plTo').value);
   await post('/api/playlists', { action: 'save', playlist: editing });
-  $('#plEditor').hidden = true; toast(t('saved')); await load();
+  $('#plDlg').close(); toast(t('saved')); await load();
 }
 
 // ---- settings ----
@@ -605,38 +836,48 @@ async function ctl(action) {
   setTimeout(load, 1500);
 }
 
-// ---- upload (files, or a whole folder; each item remembers its target folder) ----
-const drop = $('#drop'), fileInput = $('#file'), dirInput = $('#dirInput');
-drop.onclick = () => fileInput.click();
-fileInput.onchange = () => { uploadAll([...fileInput.files].map(file => ({ file, folder: uploadFolder() }))); fileInput.value = ''; };
+// ---- upload: files, a whole folder (its structure is kept), or drag & drop onto the grid ----
+const fileInput = $('#file'), dirInput = $('#dirInput'), content = $('#content');
+fileInput.onchange = () => { uploadAll([...fileInput.files].filter(isImg).map(file => ({ file, folder: uploadBase() }))); fileInput.value = ''; };
 dirInput.onchange = () => {
-  const items = [...dirInput.files].filter(isImg).map(file => ({ file, folder: (file.webkitRelativePath || '').split('/')[0] || uploadFolder() }));
+  const base = uploadBase();
+  const items = [...dirInput.files].filter(isImg).map(file => {
+    const rel = file.webkitRelativePath || '';
+    return { file, folder: joinPath(base, rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '') };
+  });
   dirInput.value = ''; uploadAll(items);
 };
-['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
-['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', e => collectDropped(e.dataTransfer).then(uploadAll));
+const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+content.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); $('#veilTo').textContent = folderTitle(curFolder === '*' ? '' : curFolder); $('#veil').hidden = false; } });
+content.addEventListener('dragleave', e => { if (!content.contains(e.relatedTarget)) $('#veil').hidden = true; });
+content.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); $('#veil').hidden = true;
+  collectDropped(e.dataTransfer).then(uploadAll);
+});
 
 // Reads dropped files and folders. The first lines run synchronously, before the browser invalidates the drop data.
 async function collectDropped(dt) {
+  const base = uploadBase();
   const entries = [...(dt.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
   const plain = [...dt.files];
-  if (!entries.length) return plain.filter(isImg).map(file => ({ file, folder: uploadFolder() }));
+  if (!entries.length) return plain.filter(isImg).map(file => ({ file, folder: base }));
   const out = [];
-  const walk = async (entry, top) => {
+  const walk = async (entry, prefix) => {
     if (entry.isFile) {
       const file = await new Promise(r => entry.file(r));
-      if (isImg(file)) out.push({ file, folder: top === null ? uploadFolder() : top });
+      if (isImg(file)) out.push({ file, folder: prefix });
     } else if (entry.isDirectory) {
+      const sub = joinPath(prefix, entry.name);
       const reader = entry.createReader();
       let batch;
       do {
         batch = await new Promise(r => reader.readEntries(r));
-        for (const child of batch) await walk(child, top === null ? entry.name : top);
+        for (const child of batch) await walk(child, sub);
       } while (batch.length);
     }
   };
-  for (const e of entries) await walk(e, null);
+  for (const e of entries) await walk(e, base);
   return out;
 }
 
@@ -663,7 +904,7 @@ function uploadOne(item, row) {
 
 async function uploadAll(items) {
   if (!items.length) return;
-  const q = $('#queue');
+  const q = $('#queue'); $('#queueBox').hidden = false;
   const rows = items.map(it => {
     const el = document.createElement('div'); el.className = 'q';
     el.innerHTML = '<div class="bar"></div><span></span><span></span>';
@@ -675,10 +916,15 @@ async function uploadAll(items) {
   let i = 0;
   const worker = async () => { while (i < rows.length) { const r = rows[i++]; await uploadOne(r.item, r); } };
   await Promise.all([worker(), worker()]);
-  const folders = [...new Set(items.map(it => it.folder))];
+  // after uploading folders, open the new top-level folder so the result is visible
+  const base = uploadBase();
+  const tops = new Set(items.filter(it => it.folder !== base).map(it => joinPath(base, (base ? it.folder.slice(base.length + 1) : it.folder).split('/')[0])));
   await load();
-  if (folders.length === 1 && folders[0]) { curFolder = folders[0]; renderGrid(); }
-  setTimeout(() => rows.forEach(r => r.el.classList.contains('ok') && r.el.remove()), 4000);
+  if (tops.size === 1) { const f = [...tops][0]; if (state.folders.some(x => x.name === f)) { selectFolder(f); toast(t('created') + ': ' + f); } }
+  setTimeout(() => {
+    rows.forEach(r => r.el.classList.contains('ok') && r.el.remove());
+    if (!$('#queue').children.length) $('#queueBox').hidden = true;
+  }, 4000);
 }
 
 // ---- living photo: analyze with the vision service, tune the regions ----
