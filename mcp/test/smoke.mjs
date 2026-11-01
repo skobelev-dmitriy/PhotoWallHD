@@ -5,7 +5,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import assert from "node:assert/strict";
 
 const log = [];
-const state = { photos: [], folders: [], rootCount: 0, playlists: [], effectivePlaylist: "", settings: { discoVisual: "auto", discoSource: "mic", discoSens: 100 }, mode: "idle", url: "http://fake:8080", totalBytes: 0, freeBytes: 5e9 };
+const films = [];
+const state = { filmstrips: films, photos: [], folders: [], rootCount: 0, playlists: [], effectivePlaylist: "", settings: { discoVisual: "auto", discoSource: "mic", discoSens: 100 }, mode: "idle", url: "http://fake:8080", totalBytes: 0, freeBytes: 5e9 };
 const fake = createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
@@ -33,6 +34,8 @@ const fake = createServer((req, res) => {
       const live = { exists: true, backend: "classical", layers: [{ id: "water-1", class: "water", effect: "ripple", enabled: true, strength: 1, confidence: 0.6, note: "n" }] };
       return send(req.url.includes("delete") ? { ok: true } : live);
     }
+    if (req.url === "/api/filmstrips/import") { const f = { id: "ab12cd34", title: decodeURIComponent(req.headers["x-filename"]).replace(".cbz", ""), frames: 29, bytes: body.length }; films.push(f); log.push({ film: f.title, len: body.length }); return send(f); }
+    if (req.url.startsWith("/api/filmstrips/")) { log.push({ film: req.url, body: body.toString() }); return send({ ok: true }); }
     if (req.url === "/api/folders") return send({ ok: true });
     if (req.url === "/api/move") return send({ moved: JSON.parse(body.toString()).names.length });
     if (req.url === "/api/delete") return send({ deleted: JSON.parse(body.toString()).names.length });
@@ -46,7 +49,7 @@ const client = new Client({ name: "smoke", version: "1" });
 await client.connect(new StdioClientTransport({ command: "node", args: ["server.js"], env: { ...process.env, PHOTOWALL_URL: url, PHOTOWALL_PIN: "1234" } }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-assert.deepEqual(tools, ["add_photo", "animate_photo", "delete_photos", "disco", "folders", "list_photos", "playlists", "projector_status", "see_screen", "slideshow", "update_settings"]);
+assert.deepEqual(tools, ["add_photo", "animate_photo", "delete_photos", "disco", "filmstrips", "folders", "list_photos", "playlists", "projector_status", "see_screen", "slideshow", "update_settings"]);
 
 let r = await client.callTool({ name: "disco", arguments: { action: "start", effect: "lamps", source: "demo" } });
 assert.match(r.content[0].text, /disco mode/);
@@ -100,6 +103,20 @@ r = await client.callTool({ name: "animate_photo", arguments: { action: "update"
 assert.equal(r.isError, true);
 r = await client.callTool({ name: "animate_photo", arguments: { action: "remove", name: "a.jpg" } });
 assert.match(r.content[0].text, /Removed/);
+
+// filmstrips: import from a URL, list, play at a frame by title, delete
+const cbz = createServer((q, s2) => { s2.writeHead(200, { "Content-Type": "application/zip" }); s2.end(Buffer.alloc(3000, 1)); });
+await new Promise((x) => cbz.listen(0, "127.0.0.1", x));
+r = await client.callTool({ name: "filmstrips", arguments: { action: "import", source: `http://127.0.0.1:${cbz.address().port}/files/film_8126.cbz` } });
+assert.match(r.content[0].text, /Imported "film_8126"/);
+r = await client.callTool({ name: "filmstrips", arguments: { action: "list" } });
+assert.match(r.content[0].text, /film_8126 \[ab12cd34\] — 29 frames/);
+r = await client.callTool({ name: "filmstrips", arguments: { action: "play", id: "FILM_8126", frame: 4 } });
+assert.match(r.content[0].text, /Started/);
+assert.ok(log.some((l) => l.film === "/api/filmstrips/play" && l.body.includes('"frame":4')), "play sent with the frame");
+r = await client.callTool({ name: "filmstrips", arguments: { action: "delete", id: "nope" } });
+assert.equal(r.isError, true);
+cbz.close();
 
 fake.close(); img.close(); await client.close();
 console.log("MCP smoke test passed");

@@ -12,6 +12,7 @@ class WebApi(private val ctx: Context) {
     private val store = PhotoStore.get(ctx)
     private val playlists = Playlists.get(ctx)
     private val live = LiveStore(ctx)
+    private val films = FilmstripStore.get(ctx)
     private val pages = HashMap<String, ByteArray>()
 
     fun handle(req: Request): Response {
@@ -38,6 +39,11 @@ class WebApi(private val ctx: Context) {
             req.method == "GET" && path.startsWith("/photo/") -> original(path.removePrefix("/photo/"))
             req.method == "POST" && path == "/api/upload" -> upload(req)
             req.method == "POST" && path == "/api/delete" -> delete(req)
+            req.method == "GET" && path.startsWith("/api/film/") -> filmFrame(path.removePrefix("/api/film/"))
+            req.method == "POST" && path == "/api/filmstrips/import" -> filmImport(req)
+            req.method == "POST" && path == "/api/filmstrips/play" -> filmPlay(req)
+            req.method == "POST" && path == "/api/filmstrips/rename" -> filmRename(req)
+            req.method == "POST" && path == "/api/filmstrips/delete" -> filmDelete(req)
             req.method == "POST" && path == "/api/live/analyze" -> liveAnalyze(req)
             req.method == "GET" && path == "/api/live/recipe" -> liveRecipe(req.query["name"] ?: "")
             req.method == "POST" && path == "/api/live/update" -> liveUpdate(req)
@@ -81,6 +87,7 @@ class WebApi(private val ctx: Context) {
             .put("folders", folderArr)
             .put("rootCount", counts[""] ?: 0)
             .put("playlists", plArr)
+            .put("filmstrips", filmArray())
             .put("effectivePlaylist", playlists.effectiveKey(prefs))
             .put("settings", prefs.toJson())
             .put("url", Net.url(ServerService.port))
@@ -96,7 +103,12 @@ class WebApi(private val ctx: Context) {
         val o = JSONObject().put("mode", Remote.mode)
         val show = Remote.view
         val disco = Remote.disco
-        if (disco != null) {
+        val film = Remote.film
+        if (film != null) {
+            val id = film.filmId
+            o.put("id", id).put("title", films.get(id)?.title ?: "").put("frame", film.index).put("total", film.total)
+                .put("paused", film.isPaused).put("ended", film.ended)
+        } else if (disco != null) {
             o.put("effect", disco.effectId).put("effectTitle", disco.effectTitle).put("auto", disco.isAuto)
                 .put("source", Remote.feed?.activeSource ?: "")
         } else if (show != null) {
@@ -168,6 +180,73 @@ class WebApi(private val ctx: Context) {
         var deleted = 0
         for (i in 0 until names.length()) if (store.delete(names.getString(i))) deleted++
         return Response.json(JSONObject().put("deleted", deleted))
+    }
+
+    // ---- filmstrips (диафильмы): saved .cbz imports ----
+
+    private fun filmJson(f: Filmstrip) = JSONObject().put("id", f.id).put("title", f.title).put("frames", f.frames.size)
+        .put("width", f.width).put("height", f.height).put("bytes", f.bytes).put("addedAt", f.addedAt).put("source", f.source).put("credits", f.credits)
+
+    private fun filmArray() = JSONArray().also { a -> films.list().forEach { a.put(filmJson(it)) } }
+
+    /** `<id>/<n>`: one frame as stored (JPEG/PNG/WebP), n counted from 0. */
+    private fun filmFrame(rest: String): Response {
+        val id = rest.substringBefore('/')
+        val n = rest.substringAfter('/', "").substringBefore('?').toIntOrNull() ?: return Response.error(400, "bad frame")
+        val file = films.frameFile(id, n) ?: return Response.error(404, "no such frame")
+        val type = when (file.extension.lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
+        return Response(200, type, file = file, headers = mapOf("Cache-Control" to "public, max-age=86400"))
+    }
+
+    /** Body = the .cbz file, header X-Filename = its name. */
+    private fun filmImport(req: Request): Response {
+        val name = req.headers["x-filename"]?.let {
+            try {
+                URLDecoder.decode(it, "UTF-8")
+            } catch (e: IllegalArgumentException) {
+                it
+            }
+        } ?: "filmstrip.cbz"
+        if (req.contentLength <= 0) return Response.error(400, "empty body")
+        if (req.contentLength > MAX_UPLOAD) return Response.error(413, "file too large")
+        if (ctx.cacheDir.usableSpace < req.contentLength * 2 + 50L * 1024 * 1024) return Response.error(507, "not enough space")
+        val tmp = java.io.File.createTempFile("film-", ".cbz", ctx.cacheDir)
+        return try {
+            tmp.outputStream().use { out ->
+                val copied = req.body.copyTo(out, 64 * 1024)
+                if (copied != req.contentLength) throw IOException("incomplete upload")
+            }
+            val f = films.import(tmp, name)
+            Response.json(filmJson(f))
+        } catch (e: IllegalArgumentException) {
+            Response.error(415, e.message ?: "unsupported archive")
+        } catch (e: IOException) {
+            Response.error(500, e.message ?: "io error")
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    private fun filmPlay(req: Request): Response {
+        val j = readJson(req)
+        val f = films.get(j.optString("id")) ?: return Response.error(404, "no such filmstrip")
+        ServerService.launchFilmstrip(ctx, f.id, if (j.has("frame")) j.optInt("frame") else null)
+        return Response.json(JSONObject().put("ok", true))
+    }
+
+    private fun filmRename(req: Request): Response {
+        val j = readJson(req)
+        if (!films.rename(j.optString("id"), j.optString("title"))) return Response.error(404, "no such filmstrip or empty title")
+        return Response.json(JSONObject().put("ok", true))
+    }
+
+    private fun filmDelete(req: Request): Response {
+        if (!films.delete(readJson(req).optString("id"))) return Response.error(404, "no such filmstrip")
+        return Response.json(JSONObject().put("ok", true))
     }
 
     // ---- "living photos": analysis by the vision service, recipe editing ----

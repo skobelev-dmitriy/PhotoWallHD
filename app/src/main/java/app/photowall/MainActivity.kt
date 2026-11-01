@@ -95,6 +95,10 @@ class MainActivity : Activity() {
 
         val start = Ui.button(this, tr("▶  Запустить показ", "▶  Start slideshow")) { cancelCountdown(); startShow() }
         column.addView(start)
+        column.addView(Ui.button(this, tr("🎞  Диафильмы", "🎞  Filmstrips")) {
+            cancelCountdown()
+            startActivity(Intent(this, FilmstripsActivity::class.java))
+        })
         column.addView(Ui.button(this, tr("🎉  Дискотека (цветомузыка)", "🎉  Disco (music visualizer)")) {
             cancelCountdown()
             startActivity(Intent(this, DiscoActivity::class.java))

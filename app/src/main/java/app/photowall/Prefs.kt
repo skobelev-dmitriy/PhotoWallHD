@@ -49,6 +49,10 @@ class Prefs(context: Context) {
     var live by boolPref("live", true)
     var liveStrength by intPref("liveStrength", 100, 0, 400)
 
+    /** Filmstrip player: "projector" (grain, vignette, flicker, warm tone) or "plain"; seconds per frame (0 = manual). */
+    var filmTheme by strPref("filmTheme", "projector", setOf("projector", "plain"))
+    var filmAutoSec by intPref("filmAutoSec", 0, 0, 300)
+
     // disco mode
     var discoSource by strPref("discoSource", "remote", setOf("remote", "mic", "output", "demo"))
     var discoVisual by strPref("discoVisual", "auto", setOf("auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"))
@@ -82,6 +86,8 @@ class Prefs(context: Context) {
         put("autostart", autostart)
         put("hasPin", pin.isNotEmpty())
         put("activePlaylist", activePlaylist)
+        put("filmTheme", filmTheme)
+        put("filmAutoSec", filmAutoSec)
         put("visionUrl", visionUrl)
         put("live", live)
         put("liveStrength", liveStrength)
@@ -117,6 +123,8 @@ class Prefs(context: Context) {
         if (j.has("visionUrl")) visionUrl = j.optString("visionUrl", "").trim().trimEnd('/').take(200)
         if (j.has("live")) live = j.optBoolean("live", live)
         if (j.has("liveStrength")) liveStrength = j.optInt("liveStrength", liveStrength)
+        if (j.has("filmTheme")) filmTheme = j.optString("filmTheme", filmTheme)
+        if (j.has("filmAutoSec")) filmAutoSec = j.optInt("filmAutoSec", filmAutoSec)
         if (j.has("activePlaylist")) activePlaylist = j.optString("activePlaylist", activePlaylist)
         if (j.has("playlistMode")) playlistMode = j.optString("playlistMode", playlistMode)
         if (j.has("pin")) pin = j.optString("pin", "").trim().take(32)

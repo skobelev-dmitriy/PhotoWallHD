@@ -102,6 +102,8 @@ const settingsShape = {
   live: z.boolean().describe("show the gentle motion of 'living photos'"),
   liveStrength: z.number().int().min(0).max(400).describe("global strength of the motion, percent"),
   visionUrl: z.string().describe("address of the vision service, e.g. http://192.168.1.10:8090 ('' = not set)"),
+  filmTheme: z.enum(["projector", "plain"]).describe("filmstrip player look"),
+  filmAutoSec: z.number().int().min(0).max(300).describe("seconds per filmstrip frame, 0 = manual"),
   playlistMode: z.enum(["manual", "schedule"]).describe("manual = play the chosen playlist; schedule = each playlist plays in its own hours"),
   discoSource: z.enum(["remote", "mic", "output", "demo"]).describe("sound for disco mode: remote = a browser on a computer sends the sound (default), mic = projector microphone, output = device audio, demo = built-in beat"),
   discoVisual: z.enum(["auto", "bars", "circle", "rings", "wave", "lamps", "fireworks", "warp", "hills"]),
@@ -298,6 +300,66 @@ function buildServer() {
       }
       await call("/api/live/delete", { method: "POST", json: { name } });
       return ok(`Removed the animation of ${name}.`);
+    },
+  );
+
+  server.registerTool(
+    "filmstrips",
+    {
+      title: "Filmstrips (диафильмы)",
+      description:
+        "Saved filmstrips: frame-by-frame stories shown on the projector, imported from .cbz archives (a zip of frame images). " +
+        "'list' shows them; 'import' saves a .cbz given by http(s) URL (or a local file path when this server runs on the user's computer); " +
+        "'play' starts one (optionally at a frame, counted from 0; match by id or exact title); 'rename'; 'delete' (confirm with the user first). " +
+        "While one is playing, the slideshow tool's next/prev/pause/stop also drive it.",
+      inputSchema: {
+        action: z.enum(["list", "import", "play", "rename", "delete"]),
+        source: z.string().optional().describe("import: URL or file path of the .cbz"),
+        name: z.string().optional().describe("import: file name, e.g. film_8126.cbz"),
+        id: z.string().optional().describe("filmstrip id or exact title"),
+        frame: z.number().int().min(0).optional(),
+        title: z.string().optional().describe("rename: the new title"),
+      },
+    },
+    async ({ action, source, name, id, frame, title }) => {
+      const state = await call("/api/state");
+      const films = state.filmstrips || [];
+      const find = (k) => films.find((f) => f.id === k || f.title.toLowerCase() === String(k).toLowerCase());
+      if (action === "list") {
+        const lines = films.map((f) => `${f.title} [${f.id}] — ${f.frames} frames, ${(f.bytes / 1e6).toFixed(1)} MB`);
+        return ok(lines.join("\n") || "No filmstrips saved yet.", { filmstrips: films });
+      }
+      if (action === "import") {
+        if (!source) throw new Error("import needs a source.");
+        let bytes;
+        let fileName = name;
+        if (/^https?:\/\//i.test(source)) {
+          const r = await fetch(source, { signal: AbortSignal.timeout(120_000) });
+          if (!r.ok) throw new Error(`Could not download: HTTP ${r.status}`);
+          bytes = Buffer.from(await r.arrayBuffer());
+          fileName ||= decodeURIComponent(basename(new URL(source).pathname)) || "filmstrip.cbz";
+        } else {
+          if (HTTP_MODE) throw new Error("Local file paths are disabled in HTTP mode; pass a URL.");
+          bytes = await readFile(source);
+          fileName ||= basename(source);
+        }
+        if (bytes.length === 0 || bytes.length > MAX_UPLOAD) throw new Error("The file is empty or larger than 300 MB.");
+        const f = await call("/api/filmstrips/import", { method: "POST", body: bytes, headers: { "X-Filename": encodeURIComponent(fileName) } });
+        return ok(`Imported "${f.title}" [${f.id}]: ${f.frames} frames.`, f);
+      }
+      const f = find(id ?? "");
+      if (!f) throw new Error(`No filmstrip "${id}". Use list.`);
+      if (action === "play") {
+        await call("/api/filmstrips/play", { method: "POST", json: { id: f.id, ...(frame !== undefined ? { frame } : {}) } });
+        return ok(`Started "${f.title}".`);
+      }
+      if (action === "rename") {
+        if (!title) throw new Error("rename needs a title.");
+        await call("/api/filmstrips/rename", { method: "POST", json: { id: f.id, title } });
+        return ok(`Renamed to "${title}".`);
+      }
+      await call("/api/filmstrips/delete", { method: "POST", json: { id: f.id } });
+      return ok(`Deleted "${f.title}".`);
     },
   );
 

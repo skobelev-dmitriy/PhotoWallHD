@@ -2,11 +2,14 @@ import android.content.ContextWrapper
 import app.photowall.PhotoStore
 import app.photowall.Playlist
 import app.photowall.Playlists
+import app.photowall.FilmstripStore
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class FakeCtx(private val root: File) : ContextWrapper(null) {
     override fun getApplicationContext() = this
-    override fun getExternalFilesDir(type: String?) = File(root, "ext").also { it.mkdirs() }
+    override fun getExternalFilesDir(type: String?) = File(root, "ext/$type").also { it.mkdirs() }
     override fun getFilesDir() = File(root, "files").also { it.mkdirs() }
     override fun getCacheDir() = File(root, "cache").also { it.mkdirs() }
 }
@@ -14,6 +17,64 @@ class FakeCtx(private val root: File) : ContextWrapper(null) {
 fun touch(f: File, ts: Long) { f.parentFile.mkdirs(); f.writeText("x"); f.setLastModified(ts) }
 fun <T> eq(actual: T, expected: T, what: String) { check(actual == expected) { "$what: expected $expected but was $actual" } }
 inline fun fails(what: String, block: () -> Unit) { try { block() } catch (e: IllegalArgumentException) { return }; error("$what: expected IllegalArgumentException") }
+
+
+fun makeZip(file: File, entries: List<Pair<String, ByteArray>>) {
+    ZipOutputStream(file.outputStream()).use { z -> for ((n, b) in entries) { z.putNextEntry(ZipEntry(n)); z.write(b); z.closeEntry() } }
+}
+
+fun filmstripTests(ctx: ContextWrapper, root: File) {
+    val fs = FilmstripStore.get(ctx)
+    val dims = { _: File -> intArrayOf(1024, 775) }
+    val img = ByteArray(2000) { 7 }
+
+    // natural order, nested names, hostile names, junk files
+    val z1 = File(root, "a.zip")
+    makeZip(z1, listOf(
+        "10.jpg" to img, "2.jpg" to img, "1.jpg" to img, "sub/3.png" to img,
+        "../evil.jpg" to img, "__MACOSX/1.jpg" to img, ".hidden.jpg" to img, "notes.txt" to img,
+        "ComicInfo.xml" to "<ComicInfo><Title>Unknown</Title><Writer>A &amp; B</Writer><Year>1952</Year></ComicInfo>".toByteArray(),
+    ))
+    val f1 = fs.import(z1, "film_8126.cbz", dims)
+    eq(f1.title, "Диафильм 8126", "Title Unknown falls back to the file name")
+    eq(f1.frames, listOf("0001.jpg", "0002.jpg", "0003.jpg", "0004.jpg", "0005.png"), "frames renamed 0001..; archive order ../evil, 1, 2, 10, sub/3")
+    check(!File(root, "ext/filmstrips/evil.jpg").exists() && !File(root, "evil.jpg").exists() && !File(root, "ext/evil.jpg").exists()) { "zip-slip name did not escape" }
+    eq(f1.credits, "Writer: A & B; Year: 1952", "credits from ComicInfo")
+    eq(listOf(f1.width, f1.height), listOf(1024, 775), "size of the first frame")
+    eq(fs.frameFile(f1.id, 0)!!.length(), 2000L, "frame file written")
+    eq(fs.frameFile(f1.id, 99), null, "no such frame")
+    eq(fs.get("../x"), null, "ids are validated")
+
+    // title from ComicInfo / info.json, rename, delete
+    val z2 = File(root, "b.zip")
+    makeZip(z2, listOf("001.jpg" to img, "ComicInfo.xml" to "<ComicInfo><Title>Теремок</Title></ComicInfo>".toByteArray()))
+    val f2 = fs.import(z2, "x.cbz", dims)
+    eq(f2.title, "Теремок", "Title from ComicInfo")
+    val z3 = File(root, "c.zip")
+    makeZip(z3, listOf("001.webp" to img, "info.json" to """{"title":"Из Stripa","author":"Unknown"}""".toByteArray()))
+    eq(fs.import(z3, "y.cbz", dims).title, "Из Stripa", "Title from info.json")
+    check(fs.rename(f2.id, "  Новое имя \u0007") && fs.get(f2.id)!!.title == "Новое имя") { "rename cleans control characters" }
+    check(!fs.rename(f2.id, "   ")) { "empty title rejected" }
+    eq(fs.list().size, 3, "three filmstrips saved")
+    check(fs.delete(f2.id) && fs.get(f2.id) == null && !fs.delete(f2.id)) { "delete" }
+
+    // limits and garbage
+    fails("not a zip") { File(root, "bad.zip").also { it.writeText("hello") }.let { fs.import(it, "bad.zip", dims) } }
+    fails("no images") { makeZip(File(root, "e.zip"), listOf("a.txt" to img)); fs.import(File(root, "e.zip"), "e.zip", dims) }
+    fails("too many files") { makeZip(File(root, "m.zip"), (0..FilmstripStore.MAX_ENTRIES).map { "$it.jpg" to ByteArray(1) }); fs.import(File(root, "m.zip"), "m.zip", dims) }
+    fails("entry too large") { makeZip(File(root, "big.zip"), listOf("1.jpg" to ByteArray(41 * 1024 * 1024))); fs.import(File(root, "big.zip"), "big.zip", dims) }
+    eq(fs.list().size, 2, "failed imports leave nothing behind")
+    eq(File(root, "ext/filmstrips").listFiles()!!.count { it.isDirectory }, 2, "no leftover folders")
+    eq(FilmstripStore.naturalCompare("2.jpg", "10.jpg") < 0, true, "natural order 2 < 10")
+
+    // the real archive from the owner, if provided: FILM_CBZ=/path/film_8126.cbz
+    System.getenv("FILM_CBZ")?.let { path ->
+        val f = fs.import(File(path), File(path).name, dims)
+        println("real archive: '" + f.title + "', " + f.frames.size + " frames, " + f.bytes / 1024 + " KB, credits='" + f.credits + "'")
+        eq(f.frames.size > 0, true, "real archive imported")
+    }
+    println("filmstrip tests passed")
+}
 
 fun main() {
     val root = File.createTempFile("pwtest", "").also { it.delete(); it.mkdirs() }
@@ -81,5 +142,6 @@ fun main() {
 
     // persistence of playlists
     check(File(ctx.filesDir, "playlists.json").exists()) { "playlists.json written" }
+    filmstripTests(ctx, root)
     println("storage + playlists tests passed (" + root + ")")
 }

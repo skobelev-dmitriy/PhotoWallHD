@@ -94,6 +94,13 @@ class SettingsActivity : Activity() {
         toggle(tr("Живые фото (лёгкое движение)", "Living photos (gentle motion)"), { prefs.live }, { prefs.live = it })
         cycle(tr("Сила движения", "Motion strength"), listOf(0, 50, 100, 150, 200, 300), { prefs.liveStrength }, { prefs.liveStrength = it }) { "$it%" }
 
+        cycle(tr("Диафильм: оформление", "Filmstrip: look"), listOf("projector", "plain"), { prefs.filmTheme }, { prefs.filmTheme = it }) {
+            if (it == "projector") tr("«Проектор» (зерно, виньетка)", "projector (grain, vignette)") else tr("простое", "plain")
+        }
+        cycle(tr("Диафильм: листание", "Filmstrip: advance"), listOf(0, 5, 8, 12, 20, 30, 60), { prefs.filmAutoSec }, { prefs.filmAutoSec = it }) {
+            if (it == 0) tr("вручную", "manual") else "$it ${tr("с", "s")}"
+        }
+
         cycle(tr("Дискотека: звук", "Disco: sound source"), listOf("remote", "mic", "output", "demo"), { prefs.discoSource }, { prefs.discoSource = it }) {
             when (it) {
                 "remote" -> tr("браузер (звук с компьютера)", "browser (sound from a computer)")

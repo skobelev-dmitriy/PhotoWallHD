@@ -104,6 +104,17 @@ class ServerService : Service() {
             }
         }
 
+        fun launchFilmstrip(ctx: Context, id: String, frame: Int?) {
+            try {
+                val i = Intent(ctx, FilmstripActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(FilmstripActivity.EXTRA_ID, id)
+                if (frame != null) i.putExtra(FilmstripActivity.EXTRA_FRAME, frame)
+                ctx.startActivity(i)
+            } catch (e: Exception) {
+                // blocked by the system (needs the "display over other apps" permission)
+            }
+        }
+
         fun launchDisco(ctx: Context) {
             if (Remote.disco != null) return
             try {

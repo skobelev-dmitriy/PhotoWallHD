@@ -38,14 +38,19 @@ object Remote {
     @Volatile
     var disco: DiscoView? = null
 
+    /** The filmstrip player on screen, if any. */
+    @Volatile
+    var film: FilmstripView? = null
+
     /** The audio analyser of the disco screen, so the web API can push sound into it. */
     @Volatile
     var feed: AudioFeed? = null
 
-    val active: Boolean get() = view != null || disco != null
+    val active: Boolean get() = view != null || disco != null || film != null
 
     /** What is on screen right now: "slideshow", "disco" or "idle". */
     val mode: String get() = when {
+        film != null -> "filmstrip"
         disco != null -> "disco"
         view != null -> "slideshow"
         else -> "idle"
@@ -85,6 +90,17 @@ object Remote {
 
     fun send(action: String) {
         main.post {
+            film?.let { f ->
+                when (action) {
+                    "next" -> f.next()
+                    "prev" -> f.prev()
+                    "pause" -> f.setPaused(true)
+                    "resume" -> f.setPaused(false)
+                    "toggle" -> f.action()
+                    "stop" -> f.onClose?.invoke()
+                }
+                return@post
+            }
             when (action) {
                 "dnext" -> disco?.step(1)
                 "dprev" -> disco?.step(-1)
