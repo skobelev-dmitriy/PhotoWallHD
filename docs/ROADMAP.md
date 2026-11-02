@@ -15,6 +15,8 @@
 
 ## Дальше
 
+- Мультимедийный центр: видение, модули и порядок работ — [MULTIMEDIA-CENTER.md](MULTIMEDIA-CENTER.md).
+
 - Параллакс по слоям: отдельный проект, см. [PARALLAX-DESIGN.md](PARALLAX-DESIGN.md) и [PARALLAX-PROJECT-PROMPT.md](PARALLAX-PROJECT-PROMPT.md).
 
 - Диафильмы: импорт и плеер сделаны ([FILMSTRIPS.md](FILMSTRIPS.md)); дальше каталог Stripa («скачать — появилось в сохранённых»), улучшение кадров, озвучка.
