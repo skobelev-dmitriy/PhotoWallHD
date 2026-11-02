@@ -121,7 +121,7 @@
 </head>
 <body>
 <main>
-  <h1>🖼 PhotoWall HD <span class="chip" id="status">…</span></h1>
+  <h1>🖼 PhotoWall HD <span class="chip" id="status">…</span> <span class="chip" id="ver" title=""></span></h1>
 
   <div class="two">
   <div class="card">
@@ -491,6 +491,7 @@ function renderStatus() {
   const chip = $('#status');
   chip.textContent = state.active ? t('running') : t('idle');
   chip.classList.toggle('on', state.active);
+  if (state.version) { $('#ver').textContent = 'v' + state.version.version + ' · #' + state.version.versionCode; $('#ver').title = 'versionName ' + state.version.version + ', versionCode ' + state.version.versionCode; }
 }
 
 // ---- library: folder tree, thumbnails, selection, viewer, playlists ----

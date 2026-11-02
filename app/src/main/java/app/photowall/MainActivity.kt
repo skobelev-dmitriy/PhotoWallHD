@@ -117,6 +117,11 @@ class MainActivity : Activity() {
             finishAffinity()
         })
 
+        column.addView(label(14f, 0xFF6C748A.toInt()).also {
+            it.text = AppVersion.get(this).label
+            it.setPadding(0, Ui.dp(this, 20), 0, 0)
+        })
+
         val maxW = min(resources.displayMetrics.widthPixels, Ui.dp(this, 620))
         val holder = LinearLayout(this).apply { gravity = Gravity.CENTER }
         holder.addView(column, LinearLayout.LayoutParams(maxW, ViewGroup.LayoutParams.WRAP_CONTENT))

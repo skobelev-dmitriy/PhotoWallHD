@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # the build number is the commit count, so the whole history is needed
 
       - uses: actions/setup-java@v5
         with:
@@ -26,16 +28,19 @@ jobs:
       - name: Build release APK
         run: ./gradlew --no-daemon assembleRelease
 
-      - name: Name the APK
-        run: cp app/build/outputs/apk/release/app-release.apk PhotoWallHD.apk
+      - name: Name the APK (version in the file name)
+        run: |
+          VERSION=$(./gradlew --no-daemon -q printVersion | sed -n 's/^name=\([^ ]*\) code=.*/\1/p')
+          echo "Version: $VERSION"
+          cp app/build/outputs/apk/release/app-release.apk "PhotoWallHD-$VERSION.apk"
 
       - uses: actions/upload-artifact@v6
         with:
           name: PhotoWallHD-apk
-          path: PhotoWallHD.apk
+          path: PhotoWallHD-*.apk
 
       - name: Publish GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: PhotoWallHD.apk
+          files: PhotoWallHD-*.apk

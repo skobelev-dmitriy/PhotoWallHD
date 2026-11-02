@@ -54,6 +54,8 @@ Android 6.0+ (API 23; Android TV, проекторы, приставки, пла
 который собирает APK при каждом push. Подпись — фиксированный ключ из `app/debug.keystore`,
 поэтому новую версию можно ставить поверх старой без удаления.
 
+Версии и журнал изменений: [CHANGELOG.md](CHANGELOG.md), [docs/VERSIONING.md](docs/VERSIONING.md).
+
 Документация: [docs/](docs/) (архитектура, API, проверка по ADB, дискотека, плейлисты, MCP, «живые» фото, планы).
 
 Фото хранятся в `Android/data/app.photowall/files/photos/` на проекторе.

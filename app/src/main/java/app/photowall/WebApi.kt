@@ -26,7 +26,7 @@ class WebApi(private val ctx: Context) {
         if (req.method == "OPTIONS") return Response(204, bytes = ByteArray(0))
         if (req.method == "GET" && (path == "/" || path == "/index.html")) return page("index.html")
         if (req.method == "GET" && (path == "/sender" || path == "/sender.html")) return page("sender.html")
-        if (path == "/api/ping") return Response.json(JSONObject().put("ok", true).put("pin", prefs.pin.isNotEmpty()))
+        if (path == "/api/ping") return Response.json(versionJson().put("ok", true).put("pin", prefs.pin.isNotEmpty()))
 
         val pin = prefs.pin
         if (pin.isNotEmpty() && (req.headers["x-pin"] ?: req.query["pin"]) != pin) return Response.error(401, "pin required")
@@ -60,6 +60,12 @@ class WebApi(private val ctx: Context) {
         }
     }
 
+    /** {"version": "1.4.0-abc1234", "versionCode": 115}: which build is running on the projector. */
+    private fun versionJson(): JSONObject {
+        val v = AppVersion.get(ctx)
+        return JSONObject().put("version", v.name).put("versionCode", v.code)
+    }
+
     private fun page(name: String): Response {
         val html = synchronized(pages) { pages.getOrPut(name) { ctx.assets.open("web/$name").use { it.readBytes() } } }
         return Response(200, "text/html; charset=utf-8", bytes = html, headers = mapOf("Cache-Control" to "no-cache"))
@@ -88,6 +94,7 @@ class WebApi(private val ctx: Context) {
             .put("rootCount", counts[""] ?: 0)
             .put("playlists", plArr)
             .put("filmstrips", filmArray())
+            .put("version", versionJson())
             .put("effectivePlaylist", playlists.effectiveKey(prefs))
             .put("settings", prefs.toJson())
             .put("url", Net.url(ServerService.port))

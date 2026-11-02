@@ -79,5 +79,18 @@ Step "выдаю разрешения и запускаю приложение"
 & $adb shell am start -n app.photowall/.MainActivity | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "приложение установилось, но не запустилось (am start)." }
 
+# --- что реально стоит на проекторе (versionName содержит короткий SHA коммита) ---
+$dump = & $adb shell dumpsys package app.photowall
+$vn = ""
+$vc = ""
+$m1 = $dump | Select-String -Pattern "versionName=(\S+)" | Select-Object -First 1
+if ($m1) { $vn = $m1.Matches[0].Groups[1].Value }
+$m2 = $dump | Select-String -Pattern "versionCode=(\d+)" | Select-Object -First 1
+if ($m2) { $vc = $m2.Matches[0].Groups[1].Value }
+Write-Host ("[{0}] На проекторе: версия {1}, сборка {2}. В репозитории: коммит {3}." -f (Get-Date -Format "HH:mm:ss"), $vn, $vc, $sha)
+if ($vn -and $vn -notlike "*$sha*") {
+    Write-Host "ВНИМАНИЕ: версия на проекторе не содержит SHA текущего коммита; проверьте, что установка прошла." -ForegroundColor Yellow
+}
+
 Write-Host ("[{0}] ГОТОВО: {1} выкачена на проектор." -f (Get-Date -Format "HH:mm:ss"), $sha) -ForegroundColor Green
 exit 0
