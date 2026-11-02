@@ -15,6 +15,8 @@
 
 ## Дальше
 
+- Параллакс по слоям: отдельный проект, см. [PARALLAX-DESIGN.md](PARALLAX-DESIGN.md) и [PARALLAX-PROJECT-PROMPT.md](PARALLAX-PROJECT-PROMPT.md).
+
 - Диафильмы: импорт и плеер сделаны ([FILMSTRIPS.md](FILMSTRIPS.md)); дальше каталог Stripa («скачать — появилось в сохранённых»), улучшение кадров, озвучка.
 - Актуальное состояние и очередь: [STATUS.md](STATUS.md).
 
