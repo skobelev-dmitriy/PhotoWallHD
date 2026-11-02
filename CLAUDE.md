@@ -10,6 +10,7 @@ Android-приложение (Kotlin, без внешних библиотек) 
 - `vision/` — Python-сервис распознавания областей для «живых» фото (Docker, тесты `pytest`).
 - `mcp/` — MCP-сервер управления проектором (Node.js, `npm test`).
 - `tools/jvm-check/` — проверка логики хранилища и плейлистов на JVM (`gradle run`).
+- `tools/deploy/` — автовыкатка на проектор по ADB на компьютере владельца (`watch.cmd`); в облаке не запускается, не проверена на Windows.
 - `docs/STATUS.md` — **читать первым**: что сделано, что проверено, принятые решения, очередь работ, вопросы к владельцу.
 - `docs/` — документация: `ARCHITECTURE`, `API`, `EFFECT-SPEC`, `LIVE-PHOTOS`, `PLAYLISTS`, `DISCO`, `MCP`, `ADB-TESTING`, `ROADMAP`, `PRODUCT-IDEAS`, `EFFECTS-IDEAS`, `FILMSTRIPS`, `STATUS`.
 - `.claude/skills/wallpaper-engine/` — заметки по Wallpaper Engine (своими словами; чужую документацию в репозиторий не копировать).

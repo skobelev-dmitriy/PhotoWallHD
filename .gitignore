@@ -9,3 +9,6 @@ local.properties
 docs/wallpaper-engine/
 __pycache__/
 .pytest_cache/
+
+# local deploy watcher state
+tools/deploy/.last-deployed
