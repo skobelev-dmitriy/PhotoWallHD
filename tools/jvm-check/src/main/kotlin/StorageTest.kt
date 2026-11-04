@@ -1,4 +1,5 @@
 import android.content.ContextWrapper
+import app.photowall.PerfMath
 import app.photowall.PhotoStore
 import app.photowall.Playlist
 import app.photowall.Playlists
@@ -143,5 +144,21 @@ fun main() {
     // persistence of playlists
     check(File(ctx.filesDir, "playlists.json").exists()) { "playlists.json written" }
     filmstripTests(ctx, root)
+    perfTests()
     println("storage + playlists tests passed (" + root + ")")
+}
+
+fun perfTests() {
+    val s = PerfMath.parseStat("1234 (photowall-http) S 1 2 3 4 5 6 7 8 9 10 150 50 0 0 20 0 5 0 100 200 300")!!
+    check(s.name == "photowall-http" && s.ticks == 200L) { "thread stat: ${s.name} ${s.ticks}" }
+    val s2 = PerfMath.parseStat("9 (Render Thread (x)) R 1 2 3 4 5 6 7 8 9 10 7 3 0 0")!!
+    check(s2.name == "Render Thread (x)" && s2.ticks == 10L) { "name with brackets" }
+    check(PerfMath.parseStat("garbage") == null) { "garbage rejected" }
+    val w = PerfMath.Window(1000)
+    w.add(0); w.add(500); w.add(1200)
+    check(w.count(1200) == 2) { "window drops old events" }
+    val f = PerfMath.frameStats(listOf(0L, 16, 32, 48, 148, 164), 170)
+    check(f.worstMs == 100L && Math.abs(f.jankPercent - 20.0) < 0.01) { "jank ${f.jankPercent} ${f.worstMs}" }
+    check(f.fps in 30.0..40.0) { "fps ${f.fps}" }
+    check(PerfMath.frameStats(listOf(0L), 10).fps == 0.0) { "single frame" }
 }

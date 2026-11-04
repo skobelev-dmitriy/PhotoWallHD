@@ -23,6 +23,7 @@ class WebApi(private val ctx: Context) {
 
     private fun route(req: Request): Response {
         val path = req.path
+        if (path != "/api/stats") PerfMonitor.request(path.substringBefore('/', "").let { path.take(40) }.let { if (it.startsWith("/api/thumb/")) "/api/thumb/*" else if (it.startsWith("/api/film/")) "/api/film/*" else if (it.startsWith("/photo/")) "/photo/*" else it })
         if (req.method == "OPTIONS") return Response(204, bytes = ByteArray(0))
         if (req.method == "GET" && (path == "/" || path == "/index.html")) return page("index.html")
         if (req.method == "GET" && (path == "/sender" || path == "/sender.html")) return page("sender.html")
@@ -34,6 +35,7 @@ class WebApi(private val ctx: Context) {
         return when {
             req.method == "GET" && path == "/api/state" -> state()
             req.method == "GET" && path == "/api/now" -> now()
+            req.method == "GET" && path == "/api/stats" -> Response.json(PerfMonitor.snapshot(ctx))
             req.method == "GET" && path == "/api/frame" -> frame()
             req.method == "GET" && path.startsWith("/api/thumb/") -> thumb(path.removePrefix("/api/thumb/"), req.query["s"])
             req.method == "GET" && path.startsWith("/photo/") -> original(path.removePrefix("/photo/"))
@@ -74,7 +76,7 @@ class WebApi(private val ctx: Context) {
     private fun state(): Response {
         val photos = store.list()
         val arr = JSONArray()
-        var dimBudget = 80 // read at most this many unknown image sizes per request; the page asks again every few seconds
+        var dimBudget = if (Remote.active) 8 else 60 // reading sizes costs CPU: far fewer while the projector is showing something
         for (p in photos) {
             val o = JSONObject().put("name", p.name).put("folder", p.folder).put("size", p.size).put("modified", p.modified).put("live", store.hasLive(p))
             store.dims(p, dimBudget > 0)?.let { o.put("w", it[0]).put("h", it[1]) } ?: run { dimBudget-- }

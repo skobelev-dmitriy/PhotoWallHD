@@ -217,10 +217,12 @@ class PhotoStore private constructor(context: Context) {
     /** Pixel size [w, h] as displayed (EXIF-rotated); read from the file once, null if not yet known and [compute] is false. */
     fun dims(p: Photo, compute: Boolean): IntArray? {
         val key = "${p.name}|${p.modified}|${p.size}"
-        dimCache[key]?.let { return it }
+        dimCache[key]?.let { return if (it === UNREADABLE) null else it }
         if (!compute) return null
-        val d = BitmapLoader.displaySize(p.file) ?: return null
-        dimCache[key] = d
+        PerfMonitor.event("sizes")
+        val d = BitmapLoader.displaySize(p.file)
+        // a file that cannot be read is remembered too, so it is not decoded again on every page refresh
+        dimCache[key] = d ?: UNREADABLE
         return d
     }
 
@@ -231,6 +233,7 @@ class PhotoStore private constructor(context: Context) {
         if (f.exists()) return f
         synchronized(thumbLock) {
             if (f.exists()) return f
+            PerfMonitor.event("thumbnails")
             val bmp = BitmapLoader.thumbnail(photo.file, side) ?: return null
             val tmp = File(thumbDir, f.name + ".tmp")
             try {
@@ -279,6 +282,8 @@ class PhotoStore private constructor(context: Context) {
         raw.split('/', '\\').map { sanitizeSegment(it) }.filter { it.isNotEmpty() }.take(MAX_DEPTH).joinToString("/")
 
     companion object {
+        private val UNREADABLE = IntArray(0)
+
         /** Folders may be nested this deep ("A/B/C/D/E/F"). */
         const val MAX_DEPTH = 6
 

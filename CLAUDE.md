@@ -12,7 +12,7 @@ Android-приложение (Kotlin, без внешних библиотек) 
 - `tools/jvm-check/` — проверка логики хранилища и плейлистов на JVM (`gradle run`).
 - `tools/deploy/` — автовыкатка на проектор по ADB на компьютере владельца (`watch.cmd`); в облаке не запускается, не проверена на Windows.
 - `docs/STATUS.md` — **читать первым**: что сделано, что проверено, принятые решения, очередь работ, вопросы к владельцу.
-- `docs/` — документация: `ARCHITECTURE`, `API`, `EFFECT-SPEC`, `LIVE-PHOTOS`, `PLAYLISTS`, `DISCO`, `MCP`, `ADB-TESTING`, `ROADMAP`, `PRODUCT-IDEAS`, `EFFECTS-IDEAS`, `FILMSTRIPS`, `STATUS`, `PARALLAX-DESIGN`, `PARALLAX-PROJECT-PROMPT`, `MULTIMEDIA-CENTER`.
+- `docs/` — документация: `ARCHITECTURE`, `API`, `EFFECT-SPEC`, `LIVE-PHOTOS`, `PLAYLISTS`, `DISCO`, `MCP`, `ADB-TESTING`, `ROADMAP`, `PRODUCT-IDEAS`, `EFFECTS-IDEAS`, `FILMSTRIPS`, `DIAGNOSTICS`, `STATUS`, `PARALLAX-DESIGN`, `PARALLAX-PROJECT-PROMPT`, `MULTIMEDIA-CENTER`.
 - `.claude/skills/wallpaper-engine/` — заметки по Wallpaper Engine (своими словами; чужую документацию в репозиторий не копировать).
 
 ## Правила работы

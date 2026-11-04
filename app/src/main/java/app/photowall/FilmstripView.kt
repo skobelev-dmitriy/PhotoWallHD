@@ -223,6 +223,7 @@ class FilmstripView(context: Context, private val film: Filmstrip, private val s
     }
 
     override fun onDraw(c: Canvas) {
+        val t0 = System.nanoTime()
         val now = SystemClock.uptimeMillis()
         val fade = ((now - changedAt) / 220f).coerceIn(0f, 1f)
         previous?.let { if (fade < 1f) { fit(it); framePaint.alpha = 255; c.drawBitmap(it, null, dst, framePaint) } }
@@ -262,6 +263,10 @@ class FilmstripView(context: Context, private val film: Filmstrip, private val s
         overlay.color = Color.argb(160, 255, 255, 255)
         c.drawRect(0f, 0f, width * (index + 1f) / total, dm.density * 2f, overlay)
 
-        if (running && (projector || fade < 1f || isPaused || ended || sinceChange < 2000)) postInvalidateOnAnimation()
+        PerfMonitor.draw("filmstrip", System.nanoTime() - t0)
+        if (running && (projector || fade < 1f || isPaused || ended || sinceChange < 2000)) {
+            // film runs at ~25 frames a second: it looks right and costs a lot less GPU than redrawing the full-screen grain at 60
+            if (projector) postInvalidateDelayed(40) else postInvalidateOnAnimation()
+        }
     }
 }

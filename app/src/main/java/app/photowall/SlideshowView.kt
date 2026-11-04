@@ -88,8 +88,14 @@ class SlideshowView(context: Context) : FrameLayout(context) {
     private var clockKey = ""
 
     private val advance = Runnable { go(1) }
+    private fun updateBitmapStats() {
+        fun bytes(v: ImageView) = (v.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.allocationByteCount?.toLong() ?: 0L
+        PerfMonitor.slideshowBitmapBytes = bytes(front) + bytes(back) + (cacheBmp?.allocationByteCount?.toLong() ?: 0L)
+    }
+
     private val finishTask = Runnable {
         back.setImageDrawable(null)
+        updateBitmapStats()
         back.alpha = 1f
         back.translationX = 0f
         prefetch()
@@ -360,6 +366,7 @@ class SlideshowView(context: Context) : FrameLayout(context) {
 
         front = incoming
         back = outgoing
+        updateBitmapStats()
 
         dimCover.setBackgroundColor(Color.argb(prefs.dim * 255 / 100, 0, 0, 0))
         handler.removeCallbacks(finishTask)

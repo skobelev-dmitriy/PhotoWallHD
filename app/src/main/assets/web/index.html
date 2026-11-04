@@ -256,6 +256,13 @@
     <div class="row" id="liveSaveRow" hidden><button onclick="liveSave()" data-t="save">Сохранить</button></div>
   </div>
 
+  <div class="card" id="diagCard">
+    <details id="diagDetails">
+      <summary style="cursor:pointer;font-weight:600" data-t="diag">Диагностика</summary>
+      <div id="diagBody" style="margin-top:10px;font-size:14px;line-height:1.5"></div>
+    </details>
+  </div>
+
   <div class="card">
     <h2 data-t="settings">Настройки</h2>
     <div class="settings">
@@ -367,6 +374,7 @@ const $ = s => document.querySelector(s);
 const lang = (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
 const T = {
   en: {
+    diag: 'Diagnostics', diagWait: 'Measuring…', diagOff: 'Not available',
     libCollapse: 'Collapse the photo library', libExpand: 'Expand the photo library',
     films: 'Filmstrips', filmImport: '⬆ Import CBZ', filmCatalog: '📚 Catalog (soon)', filmHint: 'Saved filmstrips: advance with the remote or from the phone (⏮ ⏭), frame by frame. A .cbz file is an archive of frame images.',
     filmSettings: 'Filmstrips', filmTheme: 'Look', filmProjector: 'projector (grain, vignette, flicker)', filmPlain: 'plain', filmAuto: 'Advance', filmManual: 'manual',
@@ -408,6 +416,7 @@ const T = {
     s: 's', min: 'min', h: 'h', started: 'Command sent', noPhotos: 'No photos yet — upload some above'
   },
   ru: {
+    diag: 'Диагностика', diagWait: 'Измеряю…', diagOff: 'Недоступно',
     libCollapse: 'Свернуть блок фотографий', libExpand: 'Развернуть блок фотографий',
     films: 'Диафильмы', filmImport: '⬆ Импорт CBZ', filmCatalog: '📚 Каталог (скоро)', filmHint: 'Сохранённые диафильмы: листание пультом или с телефона (⏮ ⏭), кадр за кадром. Файл .cbz — это архив с картинками кадров.',
     filmSettings: 'Диафильмы', filmTheme: 'Оформление', filmProjector: '«Проектор» (зерно, виньетка, мерцание)', filmPlain: 'простое', filmAuto: 'Листание', filmManual: 'вручную',
@@ -483,7 +492,7 @@ async function load(quiet) {
   else refreshSel();
   if (!quiet) dimRetries = 0;
   // image sizes are read a few dozen at a time on the projector; ask again soon until all are known
-  if (state.photos.some(p => !p.w) && dimRetries++ < 40) setTimeout(() => load(true).catch(() => {}), 1500);
+  if (state.photos.some(p => !p.w) && dimRetries++ < 20) setTimeout(() => { if (!document.hidden) load(true).catch(() => {}); }, 3000);
   if (!quiet) renderSettings();
 }
 
@@ -1128,17 +1137,65 @@ async function pollNow() {
     }
   } catch (e) {}
 }
-setInterval(pollNow, 1500);
+setInterval(() => { if (!document.hidden) pollNow(); }, 1500);
 setInterval(() => {
   if (nowMode !== 'disco' || frameBusy || document.hidden) return;
   frameBusy = true;
   setImg('/api/frame?t=' + Date.now() + pinQ(), () => { frameBusy = false; });
 }, 500);
 
+const diagBox = $('#diagBody');
+function bar(pct, warn) {
+  const c = pct > 85 ? '#e5484d' : pct > warn ? '#f0a020' : '#3fb950';
+  return '<div style="background:var(--line);border-radius:6px;height:10px;overflow:hidden"><div style="width:' + Math.min(100, pct) + '%;height:10px;background:' + c + '"></div></div>';
+}
+function diagHints(j) {
+  const h = [], c = j.cpu || {}, m = j.memory || {}, f = j.frames || {}, g = j.gc || {};
+  const ru = lang === 'ru';
+  if (c.percentOfAll > 70) h.push(ru ? 'Процессор загружен: проектор не успевает. Закройте страницу управления и сравните.' : 'CPU is busy: close this page and compare.');
+  if (c.thermal >= 2) h.push(ru ? 'Перегрев: система сама снижает частоту. Проверьте вентиляцию проектора.' : 'Thermal throttling: check the projector ventilation.');
+  if (c.freqMHz && c.maxFreqMHz && c.freqMHz < c.maxFreqMHz * 0.5 && c.percentOfAll > 50) h.push(ru ? 'Частота процессора занижена при высокой нагрузке — похоже на троттлинг.' : 'CPU clock is low under load — looks like throttling.');
+  if (f.animating && f.fps < 24) h.push(ru ? 'Мало кадров в секунду (' + f.fps + '): картинка идёт рывками.' : 'Low frame rate (' + f.fps + ').');
+  if (f.animating && f.jankPercent > 15) h.push(ru ? 'Много «пропущенных» кадров (' + f.jankPercent + '%).' : 'Many slow frames (' + f.jankPercent + '%).');
+  if (g.msPerSec > 50) h.push(ru ? 'Сборщик мусора работает много (' + g.msPerSec + ' мс/с): не хватает памяти или слишком большие картинки.' : 'Heavy garbage collection (' + g.msPerSec + ' ms/s).');
+  if (m.javaMaxMB && m.javaUsedMB > m.javaMaxMB * 0.8) h.push(ru ? 'Память приложения почти заполнена.' : 'App memory is nearly full.');
+  if (m.lowMemory) h.push(ru ? 'Системе не хватает памяти (закрывает приложения).' : 'System is low on memory.');
+  const w = j.work || {};
+  if ((w.thumbnails || 0) > 60 || (w.sizes || 0) > 60) h.push(ru ? 'Идёт много фоновой работы с превью/размерами фото — это бывает при открытии страницы с большой библиотекой.' : 'Lots of background thumbnail work.');
+  if (!h.length) h.push(ru ? 'Явных проблем не видно. Если тормозит именно сейчас — откройте это окно в тот момент и пришлите картинку.' : 'No obvious problems.');
+  return h;
+}
+function diagRender(j) {
+  const ru = lang === 'ru', c = j.cpu || {}, m = j.memory || {}, f = j.frames || {}, g = j.gc || {}, d = j.drawMs || {}, sv = j.server || {};
+  let o = '<div>' + (ru ? 'Процессор (приложение): ' : 'CPU (app): ') + '<b>' + (c.percentOfAll ?? '…') + '%</b> ' +
+    (c.coresBusy != null ? '(' + c.coresBusy + ' / ' + j.cores + (ru ? ' ядер' : ' cores') + ')' : '') +
+    (c.freqMHz ? ' · ' + c.freqMHz + '/' + c.maxFreqMHz + ' MHz' : '') + '</div>' + bar(c.percentOfAll || 0, 50);
+  if (c.threads && c.threads.length) o += '<div style="color:var(--dim);margin-top:4px">' + c.threads.map(x => x.name + ' ' + x.percent + '%').join(' · ') + '</div>';
+  o += '<div style="margin-top:8px">' + (ru ? 'Память: ' : 'Memory: ') + '<b>' + m.javaUsedMB + '/' + m.javaMaxMB + ' MB</b> Java · ' + m.nativeMB + ' MB native · ' + (ru ? 'картинки показа ' : 'slideshow bitmaps ') + m.bitmapsMB + ' MB · ' + (ru ? 'свободно в системе ' : 'system free ') + m.systemAvailMB + '/' + m.systemTotalMB + ' MB</div>';
+  o += '<div style="margin-top:8px">' + (ru ? 'Кадры: ' : 'Frames: ') + (f.animating ? '<b>' + f.fps + ' fps</b> · ' + (ru ? 'пропущено ' : 'slow ') + f.jankPercent + '% · max ' + f.worstMs + ' ms' : (ru ? 'экран не анимируется' : 'not animating')) + '</div>';
+  if (g.perSec != null) o += '<div>GC: ' + g.perSec + (ru ? ' раз/с, ' : '/s, ') + g.msPerSec + ' ms/s</div>';
+  const dk = Object.keys(d); if (dk.length) o += '<div>' + (ru ? 'Время отрисовки кадра: ' : 'Draw time: ') + dk.map(k => k + ' ' + d[k] + ' ms').join(' · ') + '</div>';
+  o += '<div>' + (ru ? 'Веб-сервер: подключений ' : 'Web server: connections ') + sv.activeConnections + (ru ? ', запросов всего ' : ', requests ') + sv.requestsTotal + '</div>';
+  const hot = Object.entries(sv.last60s || {}); if (hot.length) o += '<div style="color:var(--dim)">' + (ru ? 'за минуту: ' : 'last minute: ') + hot.map(([k, v]) => k + ' ×' + v).join(' · ') + '</div>';
+  const wk = Object.entries(j.work || {}); if (wk.length) o += '<div style="color:var(--dim)">' + (ru ? 'фоновая работа за минуту: ' : 'background work/min: ') + wk.map(([k, v]) => k + ' ×' + v).join(' · ') + '</div>';
+  o += '<ul style="margin:8px 0 0 18px;padding:0">' + diagHints(j).map(x => '<li>' + x + '</li>').join('') + '</ul>';
+  o += '<div style="color:var(--dim);margin-top:6px;font-size:12px">uptime ' + Math.round(j.uptimeSec / 60) + ' min · ' + (j.mode || '') + '</div>';
+  diagBox.innerHTML = o;
+}
+let diagTimer = null;
+async function diagTick() {
+  if (document.hidden) return;
+  try { diagRender(await (await api('/api/stats')).json()); } catch (e) { diagBox.textContent = t('diagOff'); }
+}
+$('#diagDetails').addEventListener('toggle', () => {
+  clearInterval(diagTimer);
+  if ($('#diagDetails').open) { diagBox.textContent = t('diagWait'); diagTick(); diagTimer = setInterval(diagTick, 2000); }
+});
+
 (async () => {
   pollNow();
   try { await load(); } catch (e) {}
-  setInterval(() => load(true).catch(() => {}), 10000);
+  setInterval(() => { if (!document.hidden) load(true).catch(() => {}); }, 10000);
 })();
 </script>
 </body>

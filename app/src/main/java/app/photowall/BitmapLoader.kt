@@ -16,7 +16,7 @@ object BitmapLoader {
      * (so 4K photos stay sharp on a 4K projector, but a 50 MP original is still
      * downsampled), honouring EXIF rotation.
      */
-    fun decode(file: File, targetW: Int, targetH: Int): Bitmap? {
+    fun decode(file: File, targetW: Int, targetH: Int, config: Bitmap.Config = Bitmap.Config.ARGB_8888): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         try {
             BitmapFactory.decodeFile(file.path, bounds)
@@ -40,7 +40,7 @@ object BitmapLoader {
             try {
                 val o = BitmapFactory.Options().apply {
                     inSampleSize = sample
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                    inPreferredConfig = config
                 }
                 bmp = BitmapFactory.decodeFile(file.path, o)
                 if (bmp == null) return null
@@ -79,7 +79,19 @@ object BitmapLoader {
     }
 
     fun thumbnail(file: File, maxSide: Int): Bitmap? {
-        val bmp = decode(file, maxSide, maxSide) ?: return null
+        // previews are re-encoded as JPEG anyway: 16-bit pixels are enough and decode faster with half the memory;
+        // and this work must not slow down the picture on screen, so it runs at background priority
+        val old = android.os.Process.getThreadPriority(android.os.Process.myTid())
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+        try {
+            return thumbnailInner(file, maxSide)
+        } finally {
+            android.os.Process.setThreadPriority(old)
+        }
+    }
+
+    private fun thumbnailInner(file: File, maxSide: Int): Bitmap? {
+        val bmp = decode(file, maxSide, maxSide, Bitmap.Config.RGB_565) ?: return null
         val longest = max(bmp.width, bmp.height)
         if (longest <= maxSide) return bmp
         val s = maxSide.toFloat() / longest

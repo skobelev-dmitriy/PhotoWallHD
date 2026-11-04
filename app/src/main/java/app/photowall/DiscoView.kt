@@ -96,6 +96,7 @@ class DiscoView(context: Context, private val feed: AudioFeed, private val prefs
     }
 
     override fun onDraw(c: Canvas) {
+        val drawStart = System.nanoTime()
         val now = System.nanoTime()
         val dt = if (lastNs == 0L) 0.016f else ((now - lastNs) / 1e9f).coerceAtMost(0.1f)
         lastNs = now
@@ -130,6 +131,7 @@ class DiscoView(context: Context, private val feed: AudioFeed, private val prefs
         if (fade > 0f) c.drawColor(Color.argb((fade * 255).toInt(), 0, 0, 0))
 
         drawHud(c, w, h)
+        PerfMonitor.draw("disco", System.nanoTime() - drawStart)
         if (running) postInvalidateOnAnimation()
     }
 

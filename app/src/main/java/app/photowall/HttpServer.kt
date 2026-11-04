@@ -44,8 +44,12 @@ class Response(
 /** A tiny blocking HTTP/1.1 server: enough for a web UI and streaming uploads, with no dependencies. */
 class HttpServer(private val handler: (Request) -> Response) {
     private var server: ServerSocket? = null
+    // Web work must never steal CPU from the picture on screen: slightly lower priority than the UI threads.
     private val pool: ExecutorService = Executors.newCachedThreadPool { r ->
-        Thread(r, "photowall-http").apply { isDaemon = true }
+        Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_LESS_FAVORABLE)
+            r.run()
+        }, "photowall-http").apply { isDaemon = true }
     }
 
     @Volatile
@@ -89,6 +93,7 @@ class HttpServer(private val handler: (Request) -> Response) {
     }
 
     private fun serve(sock: Socket) {
+        PerfMonitor.activeConnections.incrementAndGet()
         sock.use {
             try {
                 sock.soTimeout = 60_000
@@ -129,6 +134,8 @@ class HttpServer(private val handler: (Request) -> Response) {
                 write(out, response)
             } catch (e: Exception) {
                 // client went away or sent garbage: nothing useful to do
+            } finally {
+                PerfMonitor.activeConnections.decrementAndGet()
             }
         }
     }

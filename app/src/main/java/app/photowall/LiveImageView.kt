@@ -21,12 +21,14 @@ class LiveImageView(context: Context) : ImageView(context) {
             super.onDraw(canvas)
             return
         }
+        val t0 = System.nanoTime()
         l.update(SystemClock.uptimeMillis() / 1000.0, gain, d.intrinsicWidth.toFloat(), d.intrinsicHeight.toFloat())
         canvas.save()
         canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
         canvas.concat(imageMatrix)
         canvas.drawBitmapMesh(d.bitmap, l.cols, l.rows, l.verts, 0, null, 0, meshPaint)
         canvas.restore()
+        PerfMonitor.draw("livePhoto", System.nanoTime() - t0)
         postInvalidateOnAnimation()
     }
 }
